@@ -302,7 +302,10 @@ select.inp option{background:#111e33}
   </div>
 </div>
 </div>
-
+<script type="module">
+import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import{getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import{getFirestore,doc,getDoc,setDoc,onSnapshot}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const fbApp=initializeApp({apiKey:"AIzaSyCkRnITKGNFUXhsmgonGdS8lGe8gh3W7AQ",authDomain:"gfstudioos.firebaseapp.com",projectId:"gfstudioos",storageBucket:"gfstudioos.firebasestorage.app",messagingSenderId:"757404963242",appId:"1:757404963242:web:e233e76c1f528aa84e9bd3"});
 const auth=getAuth(fbApp),db=getFirestore(fbApp),provider=new GoogleAuthProvider();
@@ -569,6 +572,7 @@ document.getElementById('btn-adddir').addEventListener('click',()=>openAddItem(D
 document.getElementById('btn-addind').addEventListener('click',()=>openAddItem(D.indirect[0]?D.indirect[0].id:'','indirect'));
 document.getElementById('btn-adddicat').addEventListener('click',()=>openAddCatModal('direct'));
 document.getElementById('btn-addincat').addEventListener('click',()=>openAddCatModal('indirect'));
+
 </script>
 </body>
 </html>
