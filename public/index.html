@@ -311,10 +311,10 @@ const DOC='studioOS/shared';
 
 const DEF={studioName:'GAMEFUEL',wd:20,
   direct:[{id:'d0',name:'Resources & Salaries',color:'#818cf8',type:'direct',open:true,items:[
-    {id:'r0',name:'Deepam',note:'Senior Artist',freq:'Monthly',amount:144000,life:null,tag:'Billable'},
-    {id:'r1',name:'Sreekant',note:'Artist',freq:'Monthly',amount:100000,life:null,tag:'Billable'},
-    {id:'r2',name:'Chandan',note:'Artist',freq:'Monthly',amount:120000,life:null,tag:'Billable'},
-    {id:'r3',name:'Shubham',note:'Junior Artist',freq:'Monthly',amount:46000,life:null,tag:'Billable'}]}],
+    {id:'r0',name:'Deepam',note:'Senior Artist',freq:'Monthly',amount:144000,life:null,tag:'Billable',availableDays:20},
+    {id:'r1',name:'Sreekant',note:'Artist',freq:'Monthly',amount:100000,life:null,tag:'Billable',availableDays:20},
+    {id:'r2',name:'Chandan',note:'Artist',freq:'Monthly',amount:120000,life:null,tag:'Billable',availableDays:20},
+    {id:'r3',name:'Shubham',note:'Junior Artist',freq:'Monthly',amount:46000,life:null,tag:'Billable',availableDays:20}]}],
   indirect:[
     {id:'i0',name:'Operations',color:'#34d399',type:'indirect',open:true,items:[{id:'io0',name:'Electricity',note:'',freq:'Monthly',amount:3333,life:null,tag:''},{id:'io1',name:'Internet',note:'',freq:'Monthly',amount:1179,life:null,tag:''}]},
     {id:'i1',name:'Software',color:'#fbbf24',type:'indirect',open:true,items:[{id:'is0',name:'Figma',note:'Design',freq:'Monthly',amount:3712,life:null,tag:''},{id:'is1',name:'Google Workspace',note:'',freq:'Monthly',amount:23313,life:null,tag:''},{id:'is2',name:'Adobe',note:'',freq:'Monthly',amount:9714,life:null,tag:''},{id:'is3',name:'Maya',note:'3D',freq:'Monthly',amount:14578,life:null,tag:''},{id:'is4',name:'ZBrush',note:'',freq:'Monthly',amount:5912,life:null,tag:''},{id:'is5',name:'AI Tools',note:'',freq:'Monthly',amount:17556,life:null,tag:''},{id:'is6',name:'Other SaaS',note:'',freq:'Monthly',amount:6881,life:null,tag:''}]},
@@ -376,8 +376,8 @@ function totalBurn(){return totDir()+totInd();}
 function ohpd(u){var cap=bRes().length*20*u;return cap>0?totInd()/cap:0;}
 function dRate(r,u){return r.amount/(20*(u||0.7));}
 function totalAssignedDays(){return D.projects.reduce((s,p)=>s+Object.values(p.alloc||{}).reduce((ss,d)=>ss+(d||0),0),0);}
-function costPerDay(){var tad=totalAssignedDays();return tad>0?totalBurn()/tad:0;}
-function totalCapacityDays(){return D.direct.reduce((s,c)=>s+c.items.filter(i=>i.tag==='Billable').length,0)*D.wd;}
+function costPerDay(){var cap=totalCapacityDays();return cap>0?totalBurn()/cap:0;}
+function totalCapacityDays(){return D.direct.reduce((s,c)=>s+c.items.filter(i=>i.tag==='Billable').reduce((ss,i)=>ss+(i.availableDays||D.wd),0),0);}
 function mc(v){return v>=0.2?'var(--gr)':v>=0?'var(--am)':'var(--re)'}
 function stB(m){return m>=0.2?{l:'Healthy',c:'bgs'}:m>=0?{l:'Low margin',c:'bgw'}:{l:'Loss',c:'bgd'}}
 function pCalc(p){
@@ -607,33 +607,49 @@ window.calcQ=()=>{
 };
 
 function rUtil(){
-  var res=bRes(),cpd=costPerDay(),assigned=totalAssignedDays(),cap=totalCapacityDays();
-  var idle=Math.max(cap-assigned,0),upct=cap>0?Math.min(assigned/cap,1):0;
-  var asgn={};res.forEach(r=>asgn[r.id]=0);
+  var res=bRes(),asgn={};
+  res.forEach(r=>asgn[r.id]=0);
   D.projects.forEach(p=>Object.keys(p.alloc||{}).forEach(rid=>asgn[rid]=(asgn[rid]||0)+(p.alloc[rid]||0)));
+  var totA=Object.values(asgn).reduce((s,v)=>s+v,0),cap=totalCapacityDays(),idle=Math.max(cap-totA,0),upct=cap>0?Math.min(totA/cap,1):0,cpd=costPerDay();
   document.getElementById('u-metrics').innerHTML=
     '<div class="mc"><div class="mcl">Billable Resources</div><div class="mcv">'+res.length+'</div></div>'+
-    '<div class="mc"><div class="mcl">Available Days</div><div class="mcv">'+fN(cap)+' days</div></div>'+
-    '<div class="mc"><div class="mcl">Assigned Days</div><div class="mcv">'+fN(assigned)+' days</div></div>'+
-    '<div class="mc"><div class="mcl">Cost per Day</div><div class="mcv" style="color:var(--am)">'+fmt(cpd)+'</div></div>';
+    '<div class="mc"><div class="mcl">Available Capacity</div><div class="mcv">'+fN(cap)+' days</div></div>'+
+    '<div class="mc"><div class="mcl">Assigned Days</div><div class="mcv">'+fN(totA)+' days</div></div>'+
+    '<div class="mc"><div class="mcl">Utilization</div><div class="mcv" style="color:'+(upct>=0.7?'var(--gr)':upct>=0.5?'var(--am)':'var(--re)')+'">'+pct(upct)+'</div></div>';
   document.getElementById('u-tbl').innerHTML='<table class="tbl"><thead><tr><th>Resource</th><th style="text-align:center">Available</th><th style="text-align:center">Assigned</th><th>Utilization</th><th style="text-align:right">Idle cost</th></tr></thead><tbody>'+
-    res.map(r=>{var a=asgn[r.id]||0,cp=D.wd,up=cp>0?Math.min(a/cp,1):0,i2=Math.max(cp-a,0),ic=i2*cpd;var bc=up>=0.7?'var(--gr)':up>=0.5?'var(--am)':'var(--re)';
-      return'<tr><td><div style="display:flex;align-items:center;gap:8px"><div class="av">'+r.name.slice(0,2).toUpperCase()+'</div><div><div style="font-weight:600">'+r.name+'</div><div style="font-size:11px;color:var(--t3)">'+r.note+'</div></div></div></td>'+
-      '<td style="text-align:center">'+fN(cp)+'</td><td style="text-align:center">'+fN(a)+'</td>'+
-      '<td><div style="display:flex;align-items:center;gap:8px"><div class="ubarW"><div class="ubarF" style="width:'+(up*100).toFixed(0)+'%;background:'+bc+'"></div></div><span style="font-size:12px;font-weight:500;min-width:40px">'+pct(up)+'</span></div></td>'+
-      '<td style="text-align:right;font-weight:500;color:'+(i2>0?'var(--re)':'var(--t4)')+'">'+( i2>0?fmt(ic):'—')+'</td></tr>';
+    res.map(r=>{
+      var a=asgn[r.id]||0,cp=r.availableDays||D.wd,up=cp>0?Math.min(a/cp,1):0,i2=Math.max(cp-a,0),ic=i2*cpd;
+      var bc=up>=0.7?'var(--gr)':up>=0.5?'var(--am)':'var(--re)';
+      return '<tr><td><div style="display:flex;align-items:center;gap:8px"><div class="av">'+r.name.slice(0,2).toUpperCase()+'</div><div><div style="font-weight:600">'+r.name+'</div><div style="font-size:11px;color:var(--t3)">'+r.note+'</div></div></div></td>'+
+        '<td style="text-align:center">'+fN(cp)+' days</td>'+
+        '<td style="text-align:center">'+fN(a)+' days</td>'+
+        '<td><div style="display:flex;align-items:center;gap:8px"><div class="ubarW"><div class="ubarF" style="width:'+(up*100).toFixed(0)+'%;background:'+bc+'"></div></div><span style="font-size:12px;font-weight:500;min-width:40px">'+pct(up)+'</span></div></td>'+
+        '<td style="text-align:right;font-weight:500;color:'+(i2>0?'var(--re)':'var(--t4)')+'">'+( i2>0?fmt(ic):'—')+'</td></tr>';
     }).join('')+'</tbody></table>';
   document.getElementById('u-insight').innerHTML=idle>0?
-    '<div class="ins ins-w"><strong style="color:var(--am)">'+fN(idle)+' idle days this month</strong> at '+fmt(cpd)+'/day = idle cost of <strong style="color:var(--re)">'+fmt(idle*cpd)+'</strong>. This is what studio underutilization is costing you.</div>':
-    '<div class="ins ins-s">All capacity is assigned to projects this month.</div>';
+    '<div class="ins ins-w"><strong style="color:var(--am)">'+fN(idle)+' idle days</strong> this month. At '+fmt(cpd)+'/day, idle capacity costs <strong style="color:var(--am)">'+fmt(idle*cpd)+'</strong>.</div>':
+    '<div class="ins ins-s">All available capacity is assigned.</div>';
 }
 
 function setDP(p,el){dp=p;document.querySelectorAll('#dp-seg .sb').forEach(b=>b.classList.remove('on'));el.classList.add('on');rDirect()}window.setDP=setDP;
 function setIP(p,el){ip=p;document.querySelectorAll('#ip-seg .sb').forEach(b=>b.classList.remove('on'));el.classList.add('on');rIndirect()}window.setIP=setIP;
 function rDirect(){var per=dp,tot=D.direct.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+(per==='monthly'?mlc(i):mlc(i)*12),0),0),gt=tot+D.indirect.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+(per==='monthly'?mlc(i):mlc(i)*12),0),0);document.getElementById('dir-sum').innerHTML='<div class="mc"><div class="mcl">Direct ('+per+')</div><div class="mcv" style="color:#818cf8">'+fmt(tot)+'</div></div><div class="mc"><div class="mcl">'+(per==='monthly'?'Yearly':'Monthly')+'</div><div class="mcv">'+fmt(per==='monthly'?tot*12:tot/12)+'</div></div><div class="mc"><div class="mcl">Headcount</div><div class="mcv">'+D.direct.reduce((s,c)=>s+c.items.length,0)+'</div></div><div class="mc"><div class="mcl">% of total</div><div class="mcv">'+(gt>0?((tot/gt)*100).toFixed(1):'0')+'%</div></div>';rCatBlocks(D.direct,'dir-cats',per);}
 function rIndirect(){var per=ip,tot=D.indirect.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+(per==='monthly'?mlc(i):mlc(i)*12),0),0),gt=tot+D.direct.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+(per==='monthly'?mlc(i):mlc(i)*12),0),0);document.getElementById('ind-sum').innerHTML='<div class="mc"><div class="mcl">Indirect ('+per+')</div><div class="mcv" style="color:#34d399">'+fmt(tot)+'</div></div><div class="mc"><div class="mcl">'+(per==='monthly'?'Yearly':'Monthly')+'</div><div class="mcv">'+fmt(per==='monthly'?tot*12:tot/12)+'</div></div><div class="mc"><div class="mcl">Cost heads</div><div class="mcv">'+D.indirect.reduce((s,c)=>s+c.items.length,0)+'</div></div><div class="mc"><div class="mcl">% of total</div><div class="mcv">'+(gt>0?((tot/gt)*100).toFixed(1):'0')+'%</div></div>';rCatBlocks(D.indirect,'ind-cats',per);}
-function rCatBlocks(cats,cid,per){var container=document.getElementById(cid);container.innerHTML='';cats.forEach(cat=>{var ct=cat.items.reduce((s,i)=>s+(per==='monthly'?mlc(i):mlc(i)*12),0),div=document.createElement('div');div.className='catblk';var rows=cat.items.map(item=>'<tr><td style="font-weight:500">'+item.name+(item.note?'<div style="font-size:11px;color:var(--t3)">'+item.note+'</div>':'')+'</td><td>'+(item.tag?'<span class="bdg bgn" style="font-size:10px">'+item.tag+'</span>':'')+'</td><td><span class="bdg '+(item.freq==='Capex'?'bgb':'bgn')+'" style="font-size:10px">'+item.freq+(item.life?'/'+item.life+'mo':'')+'</span></td><td style="text-align:right;color:var(--t2)">'+fmt(mlc(item))+'</td><td style="text-align:right;color:#818cf8">'+fmt(mlc(item)*12)+'</td><td style="text-align:right;white-space:nowrap"><button class="btn btng btns" data-iid="'+item.id+'" onclick="openEditItem(this.dataset.iid)">✎</button><button class="btn btns" style="color:var(--re);background:var(--reb);border-color:var(--red)" data-iid="'+item.id+'" onclick="delItem(this.dataset.iid)">✕</button></td></tr>').join('');div.innerHTML='<div class="cathdr" data-cid="'+cat.id+'" onclick="toggleCat(this.dataset.cid)"><div class="fl"><div class="catdot" style="background:'+cat.color+'"></div><span style="font-size:13px;font-weight:600;color:var(--t1)">'+cat.name+'</span><span style="font-size:11px;color:var(--t3);margin-left:4px">'+cat.items.length+' items</span></div><div style="display:flex;align-items:center;gap:10px"><span style="font-size:14px;font-weight:600">'+fmt(ct)+'</span><span style="color:var(--t3);font-size:11px">'+(cat.open?'▴':'▾')+'</span></div></div>'+(cat.open?'<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Name</th><th>Tag</th><th>Freq</th><th style="text-align:right">Monthly</th><th style="text-align:right;color:#818cf8">Yearly</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div><div style="padding:9px 14px;border-top:1px solid var(--bd);display:flex;gap:8px"><button class="btn btng btns" data-cid="'+cat.id+'" data-ctype="'+cat.type+'" onclick="openAddItem(this.dataset.cid,this.dataset.ctype)">+ Add item</button><button class="btn btns" style="color:var(--re);background:var(--reb);border-color:var(--red)" data-cid="'+cat.id+'" onclick="delCat(this.dataset.cid)">Delete category</button></div>':'');container.appendChild(div);});}
+function rCatBlocks(cats,cid,per){var container=document.getElementById(cid);container.innerHTML='';cats.forEach(cat=>{var ct=cat.items.reduce((s,i)=>s+(per==='monthly'?mlc(i):mlc(i)*12),0),div=document.createElement('div');div.className='catblk';var rows=cat.items.map(item=>{
+    var availCell=item.tag==='Billable'?
+      '<td style="text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:5px"><input type="number" min="0" max="31" value="'+(item.availableDays||D.wd)+'" style="width:50px;text-align:center;padding:3px 6px;border:1px solid var(--bd2);border-radius:6px;background:rgba(22,36,64,0.6);color:var(--t1);font-size:12px;font-family:Space Grotesk,sans-serif" onchange="setAvailDays(\''+item.id+'\',this.value)"><span style="font-size:10px;color:var(--t4)">/ '+D.wd+'d</span></div></td>':
+      '<td></td>';
+    return '<tr><td style="font-weight:500">'+item.name+(item.note?'<div style="font-size:11px;color:var(--t3)">'+item.note+'</div>':'')+'</td>'+
+      '<td>'+(item.tag?'<span class="bdg bgn" style="font-size:10px">'+item.tag+'</span>':'')+'</td>'+
+      '<td><span class="bdg '+(item.freq==='Capex'?'bgb':'bgn')+'" style="font-size:10px">'+item.freq+(item.life?'/'+item.life+'mo':'')+'</span></td>'+
+      availCell+
+      '<td style="text-align:right;color:var(--t2)">'+fmt(mlc(item))+'</td>'+
+      '<td style="text-align:right;color:#818cf8">'+fmt(mlc(item)*12)+'</td>'+
+      '<td style="text-align:right;white-space:nowrap"><button class="btn btng btns" data-iid="'+item.id+'" onclick="openEditItem(this.dataset.iid)">✎</button>'+
+      '<button class="btn btns" style="color:var(--re);background:var(--reb);border-color:var(--red)" data-iid="'+item.id+'" onclick="delItem(this.dataset.iid)">✕</button></td></tr>';
+  }).join('');div.innerHTML='<div class="cathdr" data-cid="'+cat.id+'" onclick="toggleCat(this.dataset.cid)"><div class="fl"><div class="catdot" style="background:'+cat.color+'"></div><span style="font-size:13px;font-weight:600;color:var(--t1)">'+cat.name+'</span><span style="font-size:11px;color:var(--t3);margin-left:4px">'+cat.items.length+' items</span></div><div style="display:flex;align-items:center;gap:10px"><span style="font-size:14px;font-weight:600">'+fmt(ct)+'</span><span style="color:var(--t3);font-size:11px">'+(cat.open?'▴':'▾')+'</span></div></div>'+(cat.open?'<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Name</th><th>Tag</th><th>Freq</th><th style="text-align:right">Monthly</th><th style="text-align:right;color:#818cf8">Yearly</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div><div style="padding:9px 14px;border-top:1px solid var(--bd);display:flex;gap:8px"><button class="btn btng btns" data-cid="'+cat.id+'" data-ctype="'+cat.type+'" onclick="openAddItem(this.dataset.cid,this.dataset.ctype)">+ Add item</button><button class="btn btns" style="color:var(--re);background:var(--reb);border-color:var(--red)" data-cid="'+cat.id+'" onclick="delCat(this.dataset.cid)">Delete category</button></div>':'');container.appendChild(div);});}
 window.toggleCat=(id)=>{var c=allCats().find(x=>x.id===id);if(c)c.open=!c.open;rDirect();rIndirect()};
+window.setAvailDays=(itemId,val)=>{var item=allItems().find(i=>i.id===itemId);if(item){item.availableDays=Math.max(0,Math.min(31,parseInt(val)||0));saveD();rDirect();}};
 
 function openMod(title,bodyHTML,okFn){document.getElementById('m-title').textContent=title;document.getElementById('m-sub').style.display='none';document.getElementById('m-body').innerHTML=bodyHTML;document.getElementById('m-ok').onclick=okFn;document.getElementById('modal').classList.add('open')}
 function closeMod(){document.getElementById('modal').classList.remove('open')}
