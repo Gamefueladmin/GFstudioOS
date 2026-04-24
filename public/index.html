@@ -400,14 +400,8 @@ document.getElementById('btn-adddir').addEventListener('click',function(){openAd
 document.getElementById('btn-addind').addEventListener('click',function(){openAddItem(D.indirect[0]?D.indirect[0].id:'','indirect')});
 document.getElementById('btn-adddicat').addEventListener('click',function(){openAddCatModal('direct')});
 document.getElementById('btn-addincat').addEventListener('click',function(){openAddCatModal('indirect')});
-activePid=D.projects[0]?D.projects[0].id:null;
-window._appBooted=true;
-if(activePid){showPD();}else{showPL();}
-};
-// Hide app until auth
-document.getElementById('app').style.display='none';
+// Expose boot function for Firebase auth to call
 window._bootApp=function(){
-  // Re-check Firestore data
   if(window._firestoreData){
     var fd=window._firestoreData;
     if(fd.direct)D.direct=fd.direct;
