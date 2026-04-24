@@ -216,9 +216,7 @@ select.inp option{background:#111e33}
   <div class="metric-row" id="s-metrics"></div>
   <div class="ptable-card">
     <div class="ptable-hdr"><span class="ptable-title">Project Profitability</span>
-      <div class="fl" style="gap:10px"><span style="font-size:11px;color:var(--t4)">Util view:</span>
-        <div class="seg" id="su-seg"><button class="sb" onclick="setSU(0.5,this)">50%</button><button class="sb on" onclick="setSU(0.7,this)">70%</button><button class="sb" onclick="setSU(1.0,this)">100%</button></div>
-      </div>
+
     </div>
     <div id="s-ptable" style="overflow-x:auto"></div>
   </div>
@@ -374,30 +372,38 @@ function allItems(){return allCats().reduce((a,c)=>a.concat(c.items),[])}
 function bRes(){return D.direct.reduce((a,c)=>a.concat(c.items.filter(i=>i.tag==='Billable')),[])}
 function totDir(){return D.direct.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+mlc(i),0),0)}
 function totInd(){return D.indirect.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+mlc(i),0),0)}
-function ohpd(u){var cap=bRes().length*D.wd*u;return cap>0?totInd()/cap:0}
-function dRate(r,u){return r.amount/(D.wd*u)}
+function totalBurn(){return totDir()+totInd();}
+function totalAssignedDays(){return D.projects.reduce((s,p)=>s+Object.values(p.alloc||{}).reduce((ss,d)=>ss+(d||0),0),0);}
+function costPerDay(){var tad=totalAssignedDays();return tad>0?totalBurn()/tad:0;}
+function totalCapacityDays(){return D.direct.reduce((s,c)=>s+c.items.filter(i=>i.tag==='Billable').length,0)*D.wd;}
 function mc(v){return v>=0.2?'var(--gr)':v>=0?'var(--am)':'var(--re)'}
 function stB(m){return m>=0.2?{l:'Healthy',c:'bgs'}:m>=0?{l:'Low margin',c:'bgw'}:{l:'Loss',c:'bgd'}}
-function pCalc(p){var u=p.util||su,oh=ohpd(u),days=0,labor=0;bRes().forEach(r=>{var d=p.alloc[r.id]||0;days+=d;labor+=d*dRate(r,u)});var oha=days*oh,rev=p.agreedPrice||0,expT=(p.expenses||[]).reduce((s,e)=>s+(e.useCustom?e.customAmount:e.amount),0);var cost=labor+oha+(p.extCost||0)+(p.tools||0)+expT;var profit=rev-cost,margin=rev>0?profit/rev:0;return{days,labor,oha,cost,profit,margin,oh,rev};}
+function pCalc(p){
+  var days=Object.values(p.alloc||{}).reduce((s,d)=>s+(d||0),0);
+  var cpd=costPerDay();
+  var cost=days*cpd+(p.extCost||0)+(p.tools||0);
+  var rev=p.agreedPrice||0;
+  var profit=rev-cost,margin=rev>0?profit/rev:0;
+  return{days,cost,profit,margin,rev,cpd};
+}
 
 function go(name){document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.ni').forEach(b=>b.classList.remove('act'));var scr=document.getElementById('scr-'+name);if(scr)scr.classList.add('on');var ni=document.getElementById('ni-'+name);if(ni)ni.classList.add('act');({studio:rStudio,projects:rProjects,quote:rQuote,util:rUtil,direct:rDirect,indirect:rIndirect})[name]?.();}
 window.go=go;
-function setSU(u,el){su=u;document.querySelectorAll('#su-seg .sb').forEach(b=>b.classList.remove('on'));el.classList.add('on');rStudio()}window.setSU=setSU;
+
 
 function rStudio(){
   var burn=totDir()+totInd(),rev=D.projects.reduce((s,p)=>s+(p.agreedPrice||0),0);
-  var costAll=D.projects.reduce((s,p)=>s+pCalc(p).cost,0),profit=rev-costAll,margin=rev>0?profit/rev:0;
-  var daysAll=D.projects.reduce((s,p)=>s+pCalc(p).days,0),cap=bRes().length*D.wd*su,util=cap>0?Math.min(daysAll/cap,1):0;
   var el=document.getElementById('studio-name-el');if(el)el.textContent=D.studioName||'STUDIO';
+  var cpd=costPerDay(),assigned=totalAssignedDays(),cap=totalCapacityDays(),utilPct=cap>0?assigned/cap:0,idleDays=Math.max(cap-assigned,0),idleCost=idleDays*cpd;
   document.getElementById('s-metrics').innerHTML=
     '<div class="mcard"><div class="mcard-lbl">Monthly Burn</div><div class="mcard-val">'+fmt(burn)+'</div></div>'+
-    '<div class="mcard"><div class="mcard-lbl">Revenue</div><div class="mcard-val">'+fmt(rev)+'</div></div>'+
-    '<div class="mcard"><div class="mcard-lbl">Utilisation</div><div class="mcard-val" style="color:'+(util>=0.7?'var(--gr)':util>=0.5?'var(--am)':'var(--re)')+'">'+pct(util)+'</div></div>'+
-    '<div class="mcard"><div class="mcard-lbl">Overall Margin</div><div class="mcard-val" style="color:'+(margin>=0.2?'var(--gr)':margin>=0?'var(--am)':'var(--re)')+'">'+pct(margin)+'</div></div>';
+    '<div class="mcard"><div class="mcard-lbl">Cost per Day</div><div class="mcard-val">'+fmt(cpd)+'</div></div>'+
+    '<div class="mcard"><div class="mcard-lbl">Utilisation</div><div class="mcard-val" style="color:'+(utilPct>=0.7?'var(--gr)':utilPct>=0.5?'var(--am)':'var(--re)')+'">'+pct(utilPct)+'</div></div>'+
+    '<div class="mcard"><div class="mcard-lbl">Idle Cost</div><div class="mcard-val" style="color:'+(idleDays>0?'var(--re)':'var(--gr)')+'">'+fmt(idleCost)+'</div></div>';
   var rows=D.projects.map((p,i)=>{var c=pCalc(p);var sCls=p.projectStatus==='Active'?'st-active':p.projectStatus==='Completed'?'st-completed':p.projectStatus==='On Hold'?'st-onhold':'st-notstarted';var hLabel,hCls;if(!c.cost){hLabel='N/A';hCls='h-na';}else if(c.margin>=0.2){hLabel='Profitable';hCls='h-profit';}else if(c.margin>=0){hLabel='Low';hCls='h-low';}else{hLabel='Loss';hCls='h-loss';}
-    return '<tr data-pid="'+p.id+'" style="cursor:pointer"><td class="rnum">'+(i+1)+'</td><td><div class="pn-wrap"><div class="proj-icon-cell">'+p.icon+'</div><span class="proj-name">'+p.name+'</span></div></td><td class="dim">'+(p.clientName||'')+'</td><td class="dim">'+(p.projectCode||'')+'</td><td class="dim">'+(p.projectType||'')+'</td><td class="dim">'+(p.billingModel||'')+'</td><td><span class="'+sCls+'">'+(p.projectStatus||'')+'</span></td><td class="num">'+fmt(c.rev)+'</td><td class="num">'+fmt(c.cost)+'</td><td class="dim">'+Math.round((p.util||su)*100)+'%</td><td style="text-align:right"><span style="font-size:12px;font-weight:600;color:'+(c.margin>=0.2?'var(--gr)':c.margin>=0?'var(--am)':'var(--re)')+'">'+pct(c.margin)+'</span></td><td><span class="'+hCls+'">'+hLabel+'</span></td></tr>';
+    return '<tr data-pid="'+p.id+'" style="cursor:pointer"><td class="rnum">'+(i+1)+'</td><td><div class="pn-wrap"><div class="proj-icon-cell">'+p.icon+'</div><span class="proj-name">'+p.name+'</span></div></td><td class="dim">'+(p.clientName||'')+'</td><td class="dim">'+(p.projectCode||'')+'</td><td class="dim">'+(p.projectType||'')+'</td><td class="dim">'+(p.billingModel||'')+'</td><td><span class="'+sCls+'">'+(p.projectStatus||'')+'</span></td><td class="num">'+fmt(c.rev)+'</td><td class="num">'+fmt(c.cost)+'</td><td class="dim">'+c.days+'d</td><td style="text-align:right"><span style="font-size:12px;font-weight:600;color:'+(c.margin>=0.2?'var(--gr)':c.margin>=0?'var(--am)':'var(--re)')+'">'+pct(c.margin)+'</span></td><td><span class="'+hCls+'">'+hLabel+'</span></td></tr>';
   }).join('');
-  document.getElementById('s-ptable').innerHTML='<table class="ptbl"><thead><tr><th style="width:36px">#</th><th>Project Name</th><th>Client</th><th>Code</th><th>Type</th><th>Pricing</th><th>Status</th><th class="r">Revenue</th><th class="r">Burn</th><th>Util</th><th class="r">Margin</th><th>Health</th></tr></thead><tbody>'+(rows||'<tr><td colspan="12" style="color:var(--t4);text-align:center;padding:30px">No projects</td></tr>')+'</tbody></table>';
+  document.getElementById('s-ptable').innerHTML='<table class="ptbl"><thead><tr><th style="width:36px">#</th><th>Project Name</th><th>Client</th><th>Code</th><th>Type</th><th>Pricing</th><th>Status</th><th class="r">Revenue</th><th class="r">Cost</th><th>Days</th><th class="r">Margin</th><th>Health</th></tr></thead><tbody>'+(rows||'<tr><td colspan="12" style="color:var(--t4);text-align:center;padding:30px">No projects</td></tr>')+'</tbody></table>';
   document.querySelectorAll('#s-ptable tr[data-pid]').forEach(tr=>tr.addEventListener('click',function(){openProj(this.dataset.pid)}));
 }
 
@@ -418,10 +424,15 @@ function rProjDetail(){
   var dRows=res.filter(r=>(p.alloc[r.id]||0)>0),maxD=Math.max(...dRows.map(r=>p.alloc[r.id]||0),1);
   var dTotal=dRows.reduce((s,r)=>s+(p.alloc[r.id]||0)*dRate(r,u),0);
   var iExp=(p.expenses||[]).filter(e=>e.type==='indirect'),iTotal=iExp.reduce((s,e)=>s+(e.useCustom?e.customAmount:e.amount),0),maxI=Math.max(...iExp.map(e=>e.useCustom?e.customAmount:e.amount),1);
-  var gM=c.rev>0?(c.rev-c.labor)/c.rev:0;
+
   document.getElementById('pd-body').innerHTML=
     '<div class="pd-header"><div><button class="backbtn" id="btn-backproj" style="margin-bottom:6px">← Projects</button><div class="pd-title">'+(p.clientName?p.clientName+' — ':'')+p.name+'</div></div><div style="display:flex;gap:10px;align-items:center"><button class="btn btns" id="btn-editproj" style="font-size:11px">Edit info</button><button class="add-exp-btn" id="btn-add-expense">Add Expense</button></div></div>'+
-    '<div class="pd-metrics"><div class="pdm"><div class="pdm-lbl">Agreed Price</div><div class="pdm-val">'+fmt(c.rev)+'</div></div><div class="pdm"><div class="pdm-lbl">Cost / Burn</div><div class="pdm-val">'+fmt(c.cost)+'</div></div><div class="pdm"><div class="pdm-lbl">Profit / Loss</div><div class="pdm-val" style="color:'+(c.profit>=0?'var(--gr)':'var(--re)')+'">'+pct(c.margin)+'</div></div><div class="pdm"><div class="pdm-lbl">Gross Margin</div><div class="pdm-val" style="color:'+(gM>=0.2?'var(--gr)':gM>=0?'var(--am)':'var(--re)')+'">'+pct(gM)+'</div></div><div class="pdm" style="border-right:none"><div class="pdm-lbl">Net Margin</div><div class="pdm-val" style="color:'+(c.margin>=0.2?'var(--gr)':c.margin>=0?'var(--am)':'var(--re)')+'">'+pct(c.margin)+'</div></div></div>'+
+    '<div class="pd-metrics">'+
+    '<div class="pdm"><div class="pdm-lbl">Agreed Price</div><div class="pdm-val">'+fmt(c.rev)+'</div></div>'+
+    '<div class="pdm"><div class="pdm-lbl">Total Cost</div><div class="pdm-val">'+fmt(c.cost)+'</div></div>'+
+    '<div class="pdm"><div class="pdm-lbl">Days Assigned</div><div class="pdm-val">'+c.days+'d @ '+fmt(c.cpd)+'/d</div></div>'+
+    '<div class="pdm"><div class="pdm-lbl">Profit / Loss</div><div class="pdm-val" style="color:'+(c.profit>=0?'var(--gr)':'var(--re)')+'">'+fmt(c.profit)+'</div></div>'+
+    '<div class="pdm" style="border-right:none"><div class="pdm-lbl">Margin</div><div class="pdm-val" style="color:'+(c.margin>=0.2?'var(--gr)':c.margin>=0?'var(--am)':'var(--re)')+'">'+pct(c.margin)+'</div></div></div>'+
     '<div class="pd-panels">'+
     '<div class="panel"><div class="panel-hdr blue"><span class="panel-hdr-left">Direct Heads</span><span class="panel-hdr-amt">'+fmt(dTotal)+'</span></div><div class="panel-body"><table class="panel-table" style="width:100%"><thead><tr><th>Name</th><th>Utilisation</th><th class="r">Cost</th></tr></thead><tbody>'+
     (dRows.length?dRows.map(r=>{var d=p.alloc[r.id]||0,cost=d*dRate(r,u),bW=Math.max((d/maxD)*100,0).toFixed(1);return'<tr><td><span class="res-name" style="color:#a5b4fc">'+r.name+'</span></td><td style="width:55%;padding-right:16px"><div class="util-bar-wrap"><div class="util-track"><div class="util-fill blue" style="width:'+bW+'%">'+d+'</div></div></div></td><td class="cost-cell" style="color:#a5b4fc">'+fmt(cost)+'</td></tr>';}).join(''):'<tr><td colspan="3" class="empty-row">No resources — click Add Expense</td></tr>')+
@@ -577,16 +588,37 @@ function setQU(u,el){qu=u;document.querySelectorAll('#qu-seg .sb').forEach(b=>b.
 function rQuote(){document.getElementById('q-resrows').innerHTML=bRes().map(r=>'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div class="av" style="width:26px;height:26px;font-size:10px">'+r.name.slice(0,2).toUpperCase()+'</div><span style="font-size:13px;flex:1">'+r.name+' <span style="color:var(--t3)">'+r.note+'</span></span><input class="inp" type="number" min="0" value="'+(qdays[r.id]||0)+'" style="width:80px;text-align:center" data-rid="'+r.id+'" onchange="setQD(this)" placeholder="days"></div>').join('');calcQ();}
 window.setQD=(el)=>{qdays[el.dataset.rid]=parseFloat(el.value)||0;calcQ()};
 window.calcQ=()=>{
-  var u=qu,oh=ohpd(u),days=0,labor=0;bRes().forEach(r=>{var d=qdays[r.id]||0;days+=d;labor+=d*dRate(r,u)});
+  var cpd=costPerDay(),days=Object.values(qdays).reduce((s,v)=>s+(v||0),0);
   var ext=parseFloat((document.getElementById('q-ext')||{}).value)||0,tools=parseFloat((document.getElementById('q-tools')||{}).value)||0,tm=(parseFloat((document.getElementById('q-margin')||{}).value)||30)/100;
-  var oha=days*oh,cost=labor+oha+ext+tools,rec=cost/(1-tm),minQ=cost/(1-0.1);
+  var cost=days*cpd+ext+tools,rec=cost/(1-tm),minQ=cost/(1-0.1);
   var qo=document.getElementById('q-out');if(!qo)return;
-  qo.innerHTML='<div class="mc" style="margin-bottom:10px;background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3)"><div class="mcl" style="color:var(--gr)">Recommended — '+Math.round(tm*100)+'% margin</div><div style="font-size:24px;font-weight:700;color:var(--gr)">'+fmt(rec)+'</div></div><div class="mc" style="margin-bottom:10px"><div class="mcl">Break-even</div><div class="mcv">'+fmt(cost)+'</div></div><div class="mc"><div class="mcl">Minimum (10%)</div><div class="mcv">'+fmt(minQ)+'</div></div><div class="hr"></div>'+[['Direct labor',labor],['Overhead',oha],['External',ext],['Tools',tools],['Total cost',cost]].map(r=>'<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bd);font-size:13px"><span style="color:var(--t2)">'+r[0]+'</span><span>'+fmt(r[1])+'</span></div>').join('');
+  qo.innerHTML='<div class="mc" style="margin-bottom:10px;background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3)"><div class="mcl" style="color:var(--gr)">Recommended — '+Math.round(tm*100)+'% margin</div><div style="font-size:24px;font-weight:700;color:var(--gr)">'+fmt(rec)+'</div></div><div class="mc" style="margin-bottom:10px"><div class="mcl">Break-even</div><div class="mcv">'+fmt(cost)+'</div></div><div class="mc"><div class="mcl">Minimum (10%)</div><div class="mcv">'+fmt(minQ)+'</div></div><div class="hr"></div>'+
+  [['Days quoted',days+'d'],['Cost per day',fmt(cpd)],['Resource cost',fmt(days*cpd)],['External',fmt(ext)],['Tools',fmt(tools)],['Total cost',fmt(cost)]].map(r=>'<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bd);font-size:13px"><span style="color:var(--t2)">'+r[0]+'</span><span>'+r[1]+'</span></div>').join('');
   var qi=document.getElementById('q-intel');if(!qi)return;
   qi.innerHTML=[0.1,0.15,0.2,0.25,0.3,0.4].map(m=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bd);font-size:13px"><span style="color:var(--t2)">'+Math.round(m*100)+'%</span><span style="font-weight:600">'+fmt(cost/(1-m))+'</span></div>').join('');
 };
 
-function rUtil(){var u=su,oh=ohpd(u),res=bRes(),asgn={};res.forEach(r=>asgn[r.id]=0);D.projects.forEach(p=>Object.keys(p.alloc).forEach(rid=>asgn[rid]=(asgn[rid]||0)+(p.alloc[rid]||0)));var totA=Object.values(asgn).reduce((s,v)=>s+v,0),cap=res.length*D.wd,idle=Math.max(cap-totA,0),upct=cap>0?Math.min(totA/cap,1):0;document.getElementById('u-metrics').innerHTML='<div class="mc"><div class="mcl">Resources</div><div class="mcv">'+res.length+'</div></div><div class="mc"><div class="mcl">Capacity</div><div class="mcv">'+fN(cap)+' days</div></div><div class="mc"><div class="mcl">Assigned</div><div class="mcv">'+fN(totA)+' days</div></div><div class="mc"><div class="mcl">Utilization</div><div class="mcv" style="color:'+mc(upct)+'">'+pct(upct)+'</div></div>';document.getElementById('u-tbl').innerHTML='<table class="tbl"><thead><tr><th>Resource</th><th style="text-align:center">Capacity</th><th style="text-align:center">Assigned</th><th>Utilization</th><th style="text-align:right">Idle cost</th></tr></thead><tbody>'+res.map(r=>{var a=asgn[r.id]||0,cp=D.wd,up=cp>0?Math.min(a/cp,1):0,i2=Math.max(cp-a,0),ic=i2*oh;var bc=up>=0.7?'var(--gr)':up>=0.5?'var(--am)':'var(--re)';return'<tr><td><div style="display:flex;align-items:center;gap:8px"><div class="av">'+r.name.slice(0,2).toUpperCase()+'</div><div><div style="font-weight:600">'+r.name+'</div><div style="font-size:11px;color:var(--t3)">'+r.note+'</div></div></div></td><td style="text-align:center">'+fN(cp)+'</td><td style="text-align:center">'+fN(a)+'</td><td><div style="display:flex;align-items:center;gap:8px"><div class="ubarW"><div class="ubarF" style="width:'+(up*100).toFixed(0)+'%;background:'+bc+'"></div></div><span style="font-size:12px;font-weight:500;min-width:40px">'+pct(up)+'</span></div></td><td style="text-align:right;font-weight:500;color:'+(i2>0?'var(--re)':'var(--t4)')+'">'+( i2>0?fmt(ic):'—')+'</td></tr>';}).join('')+'</tbody></table>';document.getElementById('u-insight').innerHTML=idle>0?'<div class="ins ins-w"><strong style="color:var(--am)">'+fN(idle)+' idle days</strong>. At '+fmt(oh)+'/day, costs <strong style="color:var(--am)">'+fmt(idle*oh)+'</strong>.</div>':'<div class="ins ins-s">All capacity assigned.</div>';}
+function rUtil(){
+  var res=bRes(),cpd=costPerDay(),assigned=totalAssignedDays(),cap=totalCapacityDays();
+  var idle=Math.max(cap-assigned,0),upct=cap>0?Math.min(assigned/cap,1):0;
+  var asgn={};res.forEach(r=>asgn[r.id]=0);
+  D.projects.forEach(p=>Object.keys(p.alloc||{}).forEach(rid=>asgn[rid]=(asgn[rid]||0)+(p.alloc[rid]||0)));
+  document.getElementById('u-metrics').innerHTML=
+    '<div class="mc"><div class="mcl">Billable Resources</div><div class="mcv">'+res.length+'</div></div>'+
+    '<div class="mc"><div class="mcl">Available Days</div><div class="mcv">'+fN(cap)+' days</div></div>'+
+    '<div class="mc"><div class="mcl">Assigned Days</div><div class="mcv">'+fN(assigned)+' days</div></div>'+
+    '<div class="mc"><div class="mcl">Cost per Day</div><div class="mcv" style="color:var(--am)">'+fmt(cpd)+'</div></div>';
+  document.getElementById('u-tbl').innerHTML='<table class="tbl"><thead><tr><th>Resource</th><th style="text-align:center">Available</th><th style="text-align:center">Assigned</th><th>Utilization</th><th style="text-align:right">Idle cost</th></tr></thead><tbody>'+
+    res.map(r=>{var a=asgn[r.id]||0,cp=D.wd,up=cp>0?Math.min(a/cp,1):0,i2=Math.max(cp-a,0),ic=i2*cpd;var bc=up>=0.7?'var(--gr)':up>=0.5?'var(--am)':'var(--re)';
+      return'<tr><td><div style="display:flex;align-items:center;gap:8px"><div class="av">'+r.name.slice(0,2).toUpperCase()+'</div><div><div style="font-weight:600">'+r.name+'</div><div style="font-size:11px;color:var(--t3)">'+r.note+'</div></div></div></td>'+
+      '<td style="text-align:center">'+fN(cp)+'</td><td style="text-align:center">'+fN(a)+'</td>'+
+      '<td><div style="display:flex;align-items:center;gap:8px"><div class="ubarW"><div class="ubarF" style="width:'+(up*100).toFixed(0)+'%;background:'+bc+'"></div></div><span style="font-size:12px;font-weight:500;min-width:40px">'+pct(up)+'</span></div></td>'+
+      '<td style="text-align:right;font-weight:500;color:'+(i2>0?'var(--re)':'var(--t4)')+'">'+( i2>0?fmt(ic):'—')+'</td></tr>';
+    }).join('')+'</tbody></table>';
+  document.getElementById('u-insight').innerHTML=idle>0?
+    '<div class="ins ins-w"><strong style="color:var(--am)">'+fN(idle)+' idle days this month</strong> at '+fmt(cpd)+'/day = idle cost of <strong style="color:var(--re)">'+fmt(idle*cpd)+'</strong>. This is what studio underutilization is costing you.</div>':
+    '<div class="ins ins-s">All capacity is assigned to projects this month.</div>';
+}
 
 function setDP(p,el){dp=p;document.querySelectorAll('#dp-seg .sb').forEach(b=>b.classList.remove('on'));el.classList.add('on');rDirect()}window.setDP=setDP;
 function setIP(p,el){ip=p;document.querySelectorAll('#ip-seg .sb').forEach(b=>b.classList.remove('on'));el.classList.add('on');rIndirect()}window.setIP=setIP;
