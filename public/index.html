@@ -382,11 +382,17 @@ function mc(v){return v>=0.2?'var(--gr)':v>=0?'var(--am)':'var(--re)'}
 function stB(m){return m>=0.2?{l:'Healthy',c:'bgs'}:m>=0?{l:'Low margin',c:'bgw'}:{l:'Loss',c:'bgd'}}
 function pCalc(p){
   var days=Object.values(p.alloc||{}).reduce((s,d)=>s+(d||0),0);
-  var cpd=costPerDay();
-  var cost=days*cpd+(p.extCost||0)+(p.tools||0);
-  var rev=p.agreedPrice||0;
-  var profit=rev-cost,margin=rev>0?profit/rev:0;
-  return{days,cost,profit,margin,rev,cpd};
+  var tad=totalAssignedDays();
+  // Split cost per day into direct (salaries) and indirect (overhead)
+  var directCpd=tad>0?totDir()/tad:0;
+  var indirectCpd=tad>0?totInd()/tad:0;
+  var cpd=directCpd+indirectCpd;
+  var directCost=days*directCpd;
+  var indirectCost=days*indirectCpd;
+  var extCost=(p.extCost||0)+(p.tools||0);
+  var cost=directCost+indirectCost+extCost;
+  var rev=p.agreedPrice||0,profit=rev-cost,margin=rev>0?profit/rev:0;
+  return{days,cost,profit,margin,rev,cpd,directCost,indirectCost,extCost,directCpd,indirectCpd};
 }
 
 function go(name){document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.ni').forEach(b=>b.classList.remove('act'));var scr=document.getElementById('scr-'+name);if(scr)scr.classList.add('on');var ni=document.getElementById('ni-'+name);if(ni)ni.classList.add('act');({studio:rStudio,projects:rProjects,quote:rQuote,util:rUtil,direct:rDirect,indirect:rIndirect})[name]?.();}
@@ -436,10 +442,10 @@ function rProjDetail(){
     '<div class="pdm"><div class="pdm-lbl">Profit / Loss</div><div class="pdm-val" style="color:'+(c.profit>=0?'var(--gr)':'var(--re)')+'">'+fmt(c.profit)+'</div></div>'+
     '<div class="pdm" style="border-right:none"><div class="pdm-lbl">Margin</div><div class="pdm-val" style="color:'+(c.margin>=0.2?'var(--gr)':c.margin>=0?'var(--am)':'var(--re)')+'">'+pct(c.margin)+'</div></div></div>'+
     '<div class="pd-panels">'+
-    '<div class="panel"><div class="panel-hdr blue"><span class="panel-hdr-left">Direct Heads</span><span class="panel-hdr-amt">'+fmt(dTotal)+'</span></div><div class="panel-body"><table class="panel-table" style="width:100%"><thead><tr><th>Name</th><th>Utilisation</th><th class="r">Cost</th></tr></thead><tbody>'+
-    (dRows.length?dRows.map(r=>{var d=p.alloc[r.id]||0,cost=d*cpd,bW=Math.max((d/maxD)*100,0).toFixed(1);return'<tr><td><span class="res-name" style="color:#a5b4fc">'+r.name+'</span></td><td style="width:55%;padding-right:16px"><div class="util-bar-wrap"><div class="util-track"><div class="util-fill blue" style="width:'+bW+'%">'+d+'</div></div></div></td><td class="cost-cell" style="color:#a5b4fc">'+fmt(cost)+'</td></tr>';}).join(''):'<tr><td colspan="3" class="empty-row">No resources — click Add Expense</td></tr>')+
+    '<div class="panel"><div class="panel-hdr blue"><span class="panel-hdr-left">Direct Heads</span><span class="panel-hdr-amt">'+fmt(c.directCost)+'</span></div><div class="panel-body"><table class="panel-table" style="width:100%"><thead><tr><th>Name</th><th>Utilisation</th><th class="r">Cost</th></tr></thead><tbody>'+
+    (dRows.length?dRows.map(r=>{var d=p.alloc[r.id]||0,cost=d*c.directCpd,bW=Math.max((d/maxD)*100,0).toFixed(1);return'<tr><td><span class="res-name" style="color:#a5b4fc">'+r.name+'</span></td><td style="width:55%;padding-right:16px"><div class="util-bar-wrap"><div class="util-track"><div class="util-fill blue" style="width:'+bW+'%">'+d+'</div></div></div></td><td class="cost-cell" style="color:#a5b4fc">'+fmt(cost)+'</td></tr>';}).join(''):'<tr><td colspan="3" class="empty-row">No resources — click Add Expense</td></tr>')+
     '</tbody></table></div></div>'+
-    '<div class="panel"><div class="panel-hdr green"><span class="panel-hdr-left">Indirect Heads</span><span class="panel-hdr-amt">'+fmt(iTotal)+'</span></div><div class="panel-body"><table class="panel-table" style="width:100%"><thead><tr><th>Indirect Heads</th><th>Utilisation</th><th class="r">Cost</th></tr></thead><tbody>'+
+    '<div class="panel"><div class="panel-hdr green"><span class="panel-hdr-left">Indirect Heads</span><span class="panel-hdr-amt">'+fmt(c.indirectCost)+'</span></div><div class="panel-body"><table class="panel-table" style="width:100%"><thead><tr><th>Indirect Heads</th><th>Utilisation</th><th class="r">Cost</th></tr></thead><tbody>'+
     (iExp.length?iExp.map(e=>{var amt=e.useCustom?e.customAmount:e.amount,bP=Math.max((amt/maxI)*100,0).toFixed(1);return'<tr><td><span class="res-name" style="color:#6ee7b7">'+e.name+(e.note?' <span style="color:var(--t4);font-size:11px">'+e.note+'</span>':'')+'</span></td><td style="width:55%;padding-right:16px"><div class="util-bar-wrap"><div class="util-track"><div class="util-fill green" style="width:'+bP+'%">'+bP+'%</div></div></div></td><td class="cost-cell" style="color:#6ee7b7">'+fmt(amt)+'</td></tr>';}).join(''):'<tr><td colspan="3" class="empty-row">No indirect — click Add Expense</td></tr>')+
     '</tbody></table></div></div></div>';
   document.getElementById('btn-backproj').addEventListener('click',()=>{window._pid=null;showPL()});
