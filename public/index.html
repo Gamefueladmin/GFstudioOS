@@ -373,6 +373,8 @@ function bRes(){return D.direct.reduce((a,c)=>a.concat(c.items.filter(i=>i.tag==
 function totDir(){return D.direct.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+mlc(i),0),0)}
 function totInd(){return D.indirect.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+mlc(i),0),0)}
 function totalBurn(){return totDir()+totInd();}
+function ohpd(u){var cap=bRes().length*20*u;return cap>0?totInd()/cap:0;}
+function dRate(r,u){return r.amount/(20*(u||0.7));}
 function totalAssignedDays(){return D.projects.reduce((s,p)=>s+Object.values(p.alloc||{}).reduce((ss,d)=>ss+(d||0),0),0);}
 function costPerDay(){var tad=totalAssignedDays();return tad>0?totalBurn()/tad:0;}
 function totalCapacityDays(){return D.direct.reduce((s,c)=>s+c.items.filter(i=>i.tag==='Billable').length,0)*D.wd;}
@@ -420,9 +422,9 @@ function openProj(id){window._pid=id;document.querySelectorAll('.ni').forEach(b=
 
 function rProjDetail(){
   var p=D.projects.find(x=>x.id===window._pid);if(!p)return;
-  var c=pCalc(p),u=p.util||su,res=bRes();
+  var c=pCalc(p),cpd=costPerDay(),res=bRes();
   var dRows=res.filter(r=>(p.alloc[r.id]||0)>0),maxD=Math.max(...dRows.map(r=>p.alloc[r.id]||0),1);
-  var dTotal=dRows.reduce((s,r)=>s+(p.alloc[r.id]||0)*dRate(r,u),0);
+  var cpd=costPerDay(),dTotal=dRows.reduce((s,r)=>s+(p.alloc[r.id]||0)*cpd,0);
   var iExp=(p.expenses||[]).filter(e=>e.type==='indirect'),iTotal=iExp.reduce((s,e)=>s+(e.useCustom?e.customAmount:e.amount),0),maxI=Math.max(...iExp.map(e=>e.useCustom?e.customAmount:e.amount),1);
 
   document.getElementById('pd-body').innerHTML=
@@ -435,7 +437,7 @@ function rProjDetail(){
     '<div class="pdm" style="border-right:none"><div class="pdm-lbl">Margin</div><div class="pdm-val" style="color:'+(c.margin>=0.2?'var(--gr)':c.margin>=0?'var(--am)':'var(--re)')+'">'+pct(c.margin)+'</div></div></div>'+
     '<div class="pd-panels">'+
     '<div class="panel"><div class="panel-hdr blue"><span class="panel-hdr-left">Direct Heads</span><span class="panel-hdr-amt">'+fmt(dTotal)+'</span></div><div class="panel-body"><table class="panel-table" style="width:100%"><thead><tr><th>Name</th><th>Utilisation</th><th class="r">Cost</th></tr></thead><tbody>'+
-    (dRows.length?dRows.map(r=>{var d=p.alloc[r.id]||0,cost=d*dRate(r,u),bW=Math.max((d/maxD)*100,0).toFixed(1);return'<tr><td><span class="res-name" style="color:#a5b4fc">'+r.name+'</span></td><td style="width:55%;padding-right:16px"><div class="util-bar-wrap"><div class="util-track"><div class="util-fill blue" style="width:'+bW+'%">'+d+'</div></div></div></td><td class="cost-cell" style="color:#a5b4fc">'+fmt(cost)+'</td></tr>';}).join(''):'<tr><td colspan="3" class="empty-row">No resources — click Add Expense</td></tr>')+
+    (dRows.length?dRows.map(r=>{var d=p.alloc[r.id]||0,cost=d*cpd,bW=Math.max((d/maxD)*100,0).toFixed(1);return'<tr><td><span class="res-name" style="color:#a5b4fc">'+r.name+'</span></td><td style="width:55%;padding-right:16px"><div class="util-bar-wrap"><div class="util-track"><div class="util-fill blue" style="width:'+bW+'%">'+d+'</div></div></div></td><td class="cost-cell" style="color:#a5b4fc">'+fmt(cost)+'</td></tr>';}).join(''):'<tr><td colspan="3" class="empty-row">No resources — click Add Expense</td></tr>')+
     '</tbody></table></div></div>'+
     '<div class="panel"><div class="panel-hdr green"><span class="panel-hdr-left">Indirect Heads</span><span class="panel-hdr-amt">'+fmt(iTotal)+'</span></div><div class="panel-body"><table class="panel-table" style="width:100%"><thead><tr><th>Indirect Heads</th><th>Utilisation</th><th class="r">Cost</th></tr></thead><tbody>'+
     (iExp.length?iExp.map(e=>{var amt=e.useCustom?e.customAmount:e.amount,bP=Math.max((amt/maxI)*100,0).toFixed(1);return'<tr><td><span class="res-name" style="color:#6ee7b7">'+e.name+(e.note?' <span style="color:var(--t4);font-size:11px">'+e.note+'</span>':'')+'</span></td><td style="width:55%;padding-right:16px"><div class="util-bar-wrap"><div class="util-track"><div class="util-fill green" style="width:'+bP+'%">'+bP+'%</div></div></div></td><td class="cost-cell" style="color:#6ee7b7">'+fmt(amt)+'</td></tr>';}).join(''):'<tr><td colspan="3" class="empty-row">No indirect — click Add Expense</td></tr>')+
@@ -467,9 +469,9 @@ function expSwitchTab(tab){
 window.expSwitchTab=expSwitchTab;
 function buildExpDirectRows(){
   var p=D.projects.find(x=>x.id===window._pid);if(!p)return;
-  var res=bRes(),u=p.util||su;
+  var res=bRes(),cpd=costPerDay();
   document.getElementById('exp-direct-rows').innerHTML=expDRows.map((row,idx)=>{
-    var r=res.find(x=>x.id===row.rid),cost=r&&row.days?dRate(r,u)*parseFloat(row.days||0):0;
+    var r=res.find(x=>x.id===row.rid),cost=r&&row.days?cpd*parseFloat(row.days||0):0;
     var opts=res.map(rx=>'<option value="'+rx.id+'"'+(rx.id===row.rid?' selected':'')+'>'+(rx.name+(rx.note?' - '+rx.note:''))+'</option>').join('');
     return '<div class="exp-row-item dg" data-idx="'+idx+'"><div class="sel-wrap"><select onchange="expDChange('+idx+',\'rid\',this.value)">'+opts+'</select></div><input class="ef-inp" type="text" placeholder="Function" value="'+(row.func||'')+'" data-field="func" data-idx="'+idx+'"><input class="ef-inp ed-days" type="number" min="0" placeholder="0" value="'+(row.days||'')+'" data-field="days" data-idx="'+idx+'" style="text-align:center"><div class="ef-cost blue" id="ed-cost-'+idx+'">'+fmt(cost)+'</div><button class="ef-del" onclick="expDDel('+idx+')">✕</button></div>';
   }).join('')||'<div style="color:var(--t4);font-size:13px;padding:8px 0">No resources added.</div>';
@@ -485,9 +487,9 @@ function buildExpDirectRows(){
 }
 function updateExpDirectTotal(){
   var p=D.projects.find(x=>x.id===window._pid);if(!p)return;
-  var res=bRes(),u=p.util||su;
+  var res=bRes(),cpd=costPerDay();
   var total=expDRows.reduce((s,row,idx)=>{
-    var r=res.find(x=>x.id===row.rid),cost=r&&row.days?dRate(r,u)*parseFloat(row.days||0):0;
+    var r=res.find(x=>x.id===row.rid),cost=r&&row.days?cpd*parseFloat(row.days||0):0;
     var costEl=document.getElementById('ed-cost-'+idx);if(costEl)costEl.textContent=fmt(cost);
     return s+cost;
   },0);
