@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "gfstudioos",
     "public": "public",
     "ignore": [
       "firebase.json",
