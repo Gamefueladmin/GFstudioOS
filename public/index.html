@@ -212,7 +212,7 @@ select.inp option{background:#111e33}
 <div id="main">
 
 <div id="scr-studio" class="scr">
-  <div class="dash-title"><span class="dash-title-name" id="studio-name-el">GAMEFUEL</span><span class="dash-title-rest">Studio | Dashboard</span></div>
+  <div class="dash-title"><span class="dash-title-name" id="studio-name-el">GAMEFUEL</span><span class="dash-title-rest">Studio | Dashboard</span></div><div id="studio-span"></div>
   <div class="metric-row" id="s-metrics"></div>
   <div class="ptable-card">
     <div class="ptable-hdr"><span class="ptable-title">Project Profitability</span>
@@ -247,7 +247,7 @@ select.inp option{background:#111e33}
 </div>
 
 <div id="scr-util" class="scr">
-  <div class="pgtop"><div><div class="pgtitle">Utilization tracker</div></div></div>
+  <div class="pgtop"><div><div class="pgtitle">Portfolio Utilization</div><div class="pgsub">Set each resource's available days across the portfolio timeline</div></div></div>
   <div class="g4" id="u-metrics"></div>
   <div class="card"><div class="ct">Per-resource breakdown</div><div id="u-tbl"></div></div>
   <div class="card"><div class="ct">Idle cost insight</div><div id="u-insight"></div></div>
@@ -311,10 +311,10 @@ const DOC='studioOS/shared';
 
 const DEF={studioName:'GAMEFUEL',wd:20,
   direct:[{id:'d0',name:'Resources & Salaries',color:'#818cf8',type:'direct',open:true,items:[
-    {id:'r0',name:'Deepam',note:'Senior Artist',freq:'Monthly',amount:144000,life:null,tag:'Billable',availableDays:20},
-    {id:'r1',name:'Sreekant',note:'Artist',freq:'Monthly',amount:100000,life:null,tag:'Billable',availableDays:20},
-    {id:'r2',name:'Chandan',note:'Artist',freq:'Monthly',amount:120000,life:null,tag:'Billable',availableDays:20},
-    {id:'r3',name:'Shubham',note:'Junior Artist',freq:'Monthly',amount:46000,life:null,tag:'Billable',availableDays:20}]}],
+    {id:'r0',name:'Deepam',note:'Senior Artist',freq:'Monthly',amount:144000,life:null,tag:'Billable',availableDays:20,portfolioAvailDays:0},
+    {id:'r1',name:'Sreekant',note:'Artist',freq:'Monthly',amount:100000,life:null,tag:'Billable',availableDays:20,portfolioAvailDays:0},
+    {id:'r2',name:'Chandan',note:'Artist',freq:'Monthly',amount:120000,life:null,tag:'Billable',availableDays:20,portfolioAvailDays:0},
+    {id:'r3',name:'Shubham',note:'Junior Artist',freq:'Monthly',amount:46000,life:null,tag:'Billable',availableDays:20,portfolioAvailDays:0}]}],
   indirect:[
     {id:'i0',name:'Operations',color:'#34d399',type:'indirect',open:true,items:[{id:'io0',name:'Electricity',note:'',freq:'Monthly',amount:3333,life:null,tag:''},{id:'io1',name:'Internet',note:'',freq:'Monthly',amount:1179,life:null,tag:''}]},
     {id:'i1',name:'Software',color:'#fbbf24',type:'indirect',open:true,items:[{id:'is0',name:'Figma',note:'Design',freq:'Monthly',amount:3712,life:null,tag:''},{id:'is1',name:'Google Workspace',note:'',freq:'Monthly',amount:23313,life:null,tag:''},{id:'is2',name:'Adobe',note:'',freq:'Monthly',amount:9714,life:null,tag:''},{id:'is3',name:'Maya',note:'3D',freq:'Monthly',amount:14578,life:null,tag:''},{id:'is4',name:'ZBrush',note:'',freq:'Monthly',amount:5912,life:null,tag:''},{id:'is5',name:'AI Tools',note:'',freq:'Monthly',amount:17556,life:null,tag:''},{id:'is6',name:'Other SaaS',note:'',freq:'Monthly',amount:6881,life:null,tag:''}]},
@@ -373,11 +373,59 @@ function bRes(){return D.direct.reduce((a,c)=>a.concat(c.items.filter(i=>i.tag==
 function totDir(){return D.direct.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+mlc(i),0),0)}
 function totInd(){return D.indirect.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+mlc(i),0),0)}
 function totalBurn(){return totDir()+totInd();}
-function ohpd(u){var cap=bRes().length*20*u;return cap>0?totInd()/cap:0;}
-function dRate(r,u){return r.amount/(20*(u||0.7));}
-function totalAssignedDays(){return D.projects.reduce((s,p)=>s+Object.values(p.alloc||{}).reduce((ss,d)=>ss+(d||0),0),0);}
-function costPerDay(){var cap=totalCapacityDays();return cap>0?totalBurn()/cap:0;}
-function totalCapacityDays(){return D.direct.reduce((s,c)=>s+c.items.filter(i=>i.tag==='Billable').reduce((ss,i)=>ss+(i.availableDays||D.wd),0),0);}
+// ── PORTFOLIO MODEL ──────────────────────────────────────────
+// Count working days (Mon-Fri) between two date strings
+function workingDaysBetween(startStr,endStr){
+  if(!startStr||!endStr)return 0;
+  var s=new Date(startStr),e=new Date(endStr);
+  if(isNaN(s)||isNaN(e)||e<s)return 0;
+  var days=0,cur=new Date(s);
+  while(cur<=e){var d=cur.getDay();if(d!==0&&d!==6)days++;cur.setDate(cur.getDate()+1);}
+  return days;
+}
+// Find earliest start and latest end across all projects that have dates
+function portfolioSpan(){
+  var starts=[],ends=[];
+  D.projects.forEach(function(p){
+    if(p.startDate)starts.push(p.startDate);
+    if(p.endDate)ends.push(p.endDate);
+    if(p.actualStart)starts.push(p.actualStart);
+    if(p.actualEnd)ends.push(p.actualEnd);
+  });
+  if(!starts.length||!ends.length)return null;
+  starts.sort();ends.sort();
+  return{start:starts[0],end:ends[ends.length-1]};
+}
+// Total working days in portfolio span
+function portfolioWorkingDays(){
+  var span=portfolioSpan();
+  if(!span)return D.wd; // fallback to 1 month
+  return workingDaysBetween(span.start,span.end)||D.wd;
+}
+// Number of months the portfolio spans
+function portfolioMonths(){
+  var span=portfolioSpan();
+  if(!span)return 1;
+  var s=new Date(span.start),e=new Date(span.end);
+  if(isNaN(s)||isNaN(e))return 1;
+  var months=(e.getFullYear()-s.getFullYear())*12+(e.getMonth()-s.getMonth())+1;
+  return Math.max(1,months);
+}
+// Total burn for the entire portfolio period
+function totalPortfolioBurn(){return totalBurn()*portfolioMonths();}
+// Total capacity = sum of each billable resource's portfolioAvailDays
+function totalCapacityDays(){
+  return bRes().reduce(function(s,r){return s+(r.portfolioAvailDays||portfolioWorkingDays());},0);
+}
+// Total assigned days across all projects
+function totalAssignedDays(){
+  return D.projects.reduce(function(s,p){return s+Object.values(p.alloc||{}).reduce(function(ss,d){return ss+(d||0);},0);},0);
+}
+// Cost per day = total portfolio burn / total portfolio capacity
+function costPerDay(){
+  var cap=totalCapacityDays();
+  return cap>0?totalPortfolioBurn()/cap:0;
+}
 function mc(v){return v>=0.2?'var(--gr)':v>=0?'var(--am)':'var(--re)'}
 function stB(m){return m>=0.2?{l:'Healthy',c:'bgs'}:m>=0?{l:'Low margin',c:'bgw'}:{l:'Loss',c:'bgd'}}
 function pCalc(p){
@@ -400,19 +448,61 @@ window.go=go;
 
 
 function rStudio(){
-  var burn=totDir()+totInd(),rev=D.projects.reduce((s,p)=>s+(p.agreedPrice||0),0);
+  var burn=totDir()+totInd();
+  var span=portfolioSpan();
+  var months=portfolioMonths();
+  var workDays=portfolioWorkingDays();
+  var cap=totalCapacityDays();
+  var assigned=totalAssignedDays();
+  var cpd=costPerDay();
+  var util=cap>0?Math.min(assigned/cap,1):0;
+  var rev=D.projects.reduce(function(s,p){return s+(p.agreedPrice||0);},0);
+  var totalCost=D.projects.reduce(function(s,p){return s+pCalc(p).cost;},0);
+  var totalProfit=rev-totalCost;
   var el=document.getElementById('studio-name-el');if(el)el.textContent=D.studioName||'STUDIO';
-  var cpd=costPerDay(),assigned=totalAssignedDays(),cap=totalCapacityDays(),utilPct=cap>0?assigned/cap:0,idleDays=Math.max(cap-assigned,0),idleCost=idleDays*cpd;
+  var spanInfo=span?
+    '<div style="font-size:11px;color:var(--t3);margin-bottom:18px;padding:10px 14px;background:rgba(99,102,241,0.08);border-radius:8px;border:1px solid rgba(99,102,241,0.15);display:flex;align-items:center;gap:20px">'+
+    '<span>📅 Portfolio: <strong style="color:var(--t2)">'+span.start+' → '+span.end+'</strong></span>'+
+    '<span>💼 '+months+' month'+(months!==1?'s':'')+' · '+workDays+' working days</span>'+
+    '<span>Cost/day: <strong style="color:var(--am)">'+fmt(cpd)+'</strong></span>'+
+    '<span>Capacity: <strong style="color:var(--t2)">'+cap+' days</strong></span>'+
+    '</div>':
+    '<div style="font-size:11px;color:var(--re);margin-bottom:18px;padding:10px 14px;background:rgba(244,63,94,0.08);border-radius:8px;border:1px solid rgba(244,63,94,0.2)">⚠️ Add start &amp; end dates to projects to enable portfolio calculation.</div>';
+  document.getElementById('studio-span').innerHTML=spanInfo;
   document.getElementById('s-metrics').innerHTML=
     '<div class="mcard"><div class="mcard-lbl">Monthly Burn</div><div class="mcard-val">'+fmt(burn)+'</div></div>'+
-    '<div class="mcard"><div class="mcard-lbl">Cost per Day</div><div class="mcard-val">'+fmt(cpd)+'</div></div>'+
-    '<div class="mcard"><div class="mcard-lbl">Utilisation</div><div class="mcard-val" style="color:'+(utilPct>=0.7?'var(--gr)':utilPct>=0.5?'var(--am)':'var(--re)')+'">'+pct(utilPct)+'</div></div>'+
-    '<div class="mcard"><div class="mcard-lbl">Idle Cost</div><div class="mcard-val" style="color:'+(idleDays>0?'var(--re)':'var(--gr)')+'">'+fmt(idleCost)+'</div></div>';
-  var rows=D.projects.map((p,i)=>{var c=pCalc(p);var sCls=p.projectStatus==='Active'?'st-active':p.projectStatus==='Completed'?'st-completed':p.projectStatus==='On Hold'?'st-onhold':'st-notstarted';var hLabel,hCls;if(!c.cost){hLabel='N/A';hCls='h-na';}else if(c.margin>=0.2){hLabel='Profitable';hCls='h-profit';}else if(c.margin>=0){hLabel='Low';hCls='h-low';}else{hLabel='Loss';hCls='h-loss';}
-    return '<tr data-pid="'+p.id+'" style="cursor:pointer"><td class="rnum">'+(i+1)+'</td><td><div class="pn-wrap"><div class="proj-icon-cell">'+p.icon+'</div><span class="proj-name">'+p.name+'</span></div></td><td class="dim">'+(p.clientName||'')+'</td><td class="dim">'+(p.projectCode||'')+'</td><td class="dim">'+(p.projectType||'')+'</td><td class="dim">'+(p.billingModel||'')+'</td><td><span class="'+sCls+'">'+(p.projectStatus||'')+'</span></td><td class="num">'+fmt(c.rev)+'</td><td class="num">'+fmt(c.cost)+'</td><td class="dim">'+c.days+'d</td><td style="text-align:right"><span style="font-size:12px;font-weight:600;color:'+(c.margin>=0.2?'var(--gr)':c.margin>=0?'var(--am)':'var(--re)')+'">'+pct(c.margin)+'</span></td><td><span class="'+hCls+'">'+hLabel+'</span></td></tr>';
+    '<div class="mcard"><div class="mcard-lbl">Portfolio Revenue</div><div class="mcard-val">'+fmt(rev)+'</div></div>'+
+    '<div class="mcard"><div class="mcard-lbl">Utilization</div><div class="mcard-val" style="color:'+(util>=0.7?'var(--gr)':util>=0.5?'var(--am)':'var(--re)')+'">'+pct(util)+'</div></div>'+
+    '<div class="mcard"><div class="mcard-lbl">Portfolio P&amp;L</div><div class="mcard-val" style="color:'+(totalProfit>=0?'var(--gr)':'var(--re)')+'">'+fmt(totalProfit)+'</div></div>';
+  var rows=D.projects.map(function(p,i){
+    var c=pCalc(p);
+    var sCls=p.projectStatus==='Active'?'st-active':p.projectStatus==='Completed'?'st-completed':p.projectStatus==='On Hold'?'st-onhold':'st-notstarted';
+    var hLabel,hCls;
+    if(!c.cost){hLabel='N/A';hCls='h-na';}
+    else if(c.margin>=0.2){hLabel='Profitable';hCls='h-profit';}
+    else if(c.margin>=0){hLabel='Low';hCls='h-low';}
+    else{hLabel='Loss';hCls='h-loss';}
+    return '<tr data-pid="'+p.id+'" style="cursor:pointer"><td class="rnum">'+(i+1)+'</td>'+
+      '<td><div class="pn-wrap"><div class="proj-icon-cell">'+p.icon+'</div><span class="proj-name">'+p.name+'</span></div></td>'+
+      '<td class="dim">'+(p.clientName||'')+'</td>'+
+      '<td class="dim" style="font-size:11px">'+(p.startDate||'—')+' → '+(p.endDate||'—')+'</td>'+
+      '<td class="dim">'+(p.billingModel||'')+'</td>'+
+      '<td><span class="'+sCls+'">'+(p.projectStatus||'')+'</span></td>'+
+      '<td class="num">'+fmt(c.rev)+'</td>'+
+      '<td class="num">'+fmt(c.cost)+'</td>'+
+      '<td class="num" style="color:'+(c.profit>=0?'var(--gr)':'var(--re)')+'">'+fmt(c.profit)+'</td>'+
+      '<td style="text-align:right"><span style="font-size:12px;font-weight:600;color:'+(c.margin>=0.2?'var(--gr)':c.margin>=0?'var(--am)':'var(--re)')+'">'+pct(c.margin)+'</span></td>'+
+      '<td><span class="'+hCls+'">'+hLabel+'</span></td></tr>';
   }).join('');
-  document.getElementById('s-ptable').innerHTML='<table class="ptbl"><thead><tr><th style="width:36px">#</th><th>Project Name</th><th>Client</th><th>Code</th><th>Type</th><th>Pricing</th><th>Status</th><th class="r">Revenue</th><th class="r">Cost</th><th>Days</th><th class="r">Margin</th><th>Health</th></tr></thead><tbody>'+(rows||'<tr><td colspan="12" style="color:var(--t4);text-align:center;padding:30px">No projects</td></tr>')+'</tbody></table>';
-  document.querySelectorAll('#s-ptable tr[data-pid]').forEach(tr=>tr.addEventListener('click',function(){openProj(this.dataset.pid)}));
+  document.getElementById('s-ptable').innerHTML=
+    '<table class="ptbl"><thead><tr>'+
+    '<th style="width:36px">#</th><th>Project</th><th>Client</th><th>Timeline</th>'+
+    '<th>Pricing</th><th>Status</th><th class="r">Revenue</th><th class="r">Cost</th>'+
+    '<th class="r">Profit</th><th class="r">Margin</th><th>Health</th>'+
+    '</tr></thead><tbody>'+(rows||'<tr><td colspan="11" style="color:var(--t4);text-align:center;padding:30px">No projects</td></tr>')+'</tbody></table>';
+  document.querySelectorAll('#s-ptable tr[data-pid]').forEach(function(tr){
+    tr.addEventListener('click',function(){openProj(this.dataset.pid)});
+  });
 }
 
 function rProjects(){if(window._pid)showPD();else showPL();}
@@ -608,27 +698,53 @@ window.calcQ=()=>{
 
 function rUtil(){
   var res=bRes(),asgn={};
-  res.forEach(r=>asgn[r.id]=0);
-  D.projects.forEach(p=>Object.keys(p.alloc||{}).forEach(rid=>asgn[rid]=(asgn[rid]||0)+(p.alloc[rid]||0)));
-  var totA=Object.values(asgn).reduce((s,v)=>s+v,0),cap=totalCapacityDays(),idle=Math.max(cap-totA,0),upct=cap>0?Math.min(totA/cap,1):0,cpd=costPerDay();
+  res.forEach(function(r){asgn[r.id]=0;});
+  D.projects.forEach(function(p){Object.keys(p.alloc||{}).forEach(function(rid){asgn[rid]=(asgn[rid]||0)+(p.alloc[rid]||0);});});
+  var span=portfolioSpan();
+  var months=portfolioMonths();
+  var workDays=portfolioWorkingDays();
+  var cap=totalCapacityDays();
+  var assigned=totalAssignedDays();
+  var cpd=costPerDay();
+  var util=cap>0?Math.min(assigned/cap,1):0;
+  var idle=Math.max(cap-assigned,0);
   document.getElementById('u-metrics').innerHTML=
-    '<div class="mc"><div class="mcl">Billable Resources</div><div class="mcv">'+res.length+'</div></div>'+
-    '<div class="mc"><div class="mcl">Available Capacity</div><div class="mcv">'+fN(cap)+' days</div></div>'+
-    '<div class="mc"><div class="mcl">Assigned Days</div><div class="mcv">'+fN(totA)+' days</div></div>'+
-    '<div class="mc"><div class="mcl">Utilization</div><div class="mcv" style="color:'+(upct>=0.7?'var(--gr)':upct>=0.5?'var(--am)':'var(--re)')+'">'+pct(upct)+'</div></div>';
-  document.getElementById('u-tbl').innerHTML='<table class="tbl"><thead><tr><th>Resource</th><th style="text-align:center">Available</th><th style="text-align:center">Assigned</th><th>Utilization</th><th style="text-align:right">Idle cost</th></tr></thead><tbody>'+
-    res.map(r=>{
-      var a=asgn[r.id]||0,cp=r.availableDays||D.wd,up=cp>0?Math.min(a/cp,1):0,i2=Math.max(cp-a,0),ic=i2*cpd;
+    '<div class="mc"><div class="mcl">Portfolio Span</div><div class="mcv" style="font-size:13px">'+(span?span.start+' → '+span.end:'No dates set')+'</div></div>'+
+    '<div class="mc"><div class="mcl">Working Days</div><div class="mcv">'+workDays+'</div></div>'+
+    '<div class="mc"><div class="mcl">Total Capacity</div><div class="mcv">'+cap+' days</div></div>'+
+    '<div class="mc"><div class="mcl">Utilization</div><div class="mcv" style="color:'+(util>=0.7?'var(--gr)':util>=0.5?'var(--am)':'var(--re)')+'">'+pct(util)+'</div></div>';
+  document.getElementById('u-tbl').innerHTML='<table class="tbl"><thead><tr>'+
+    '<th>Resource</th><th style="text-align:center">Portfolio Available Days</th>'+
+    '<th style="text-align:center">Assigned</th><th>Utilization</th><th style="text-align:right">Idle Cost</th>'+
+    '</tr></thead><tbody>'+
+    res.map(function(r){
+      var a=asgn[r.id]||0;
+      var avail=r.portfolioAvailDays||workDays;
+      var up=avail>0?Math.min(a/avail,1):0;
+      var i2=Math.max(avail-a,0);
+      var ic=i2*cpd;
       var bc=up>=0.7?'var(--gr)':up>=0.5?'var(--am)':'var(--re)';
-      return '<tr><td><div style="display:flex;align-items:center;gap:8px"><div class="av">'+r.name.slice(0,2).toUpperCase()+'</div><div><div style="font-weight:600">'+r.name+'</div><div style="font-size:11px;color:var(--t3)">'+r.note+'</div></div></div></td>'+
-        '<td style="text-align:center">'+fN(cp)+' days</td>'+
-        '<td style="text-align:center">'+fN(a)+' days</td>'+
-        '<td><div style="display:flex;align-items:center;gap:8px"><div class="ubarW"><div class="ubarF" style="width:'+(up*100).toFixed(0)+'%;background:'+bc+'"></div></div><span style="font-size:12px;font-weight:500;min-width:40px">'+pct(up)+'</span></div></td>'+
-        '<td style="text-align:right;font-weight:500;color:'+(i2>0?'var(--re)':'var(--t4)')+'">'+( i2>0?fmt(ic):'—')+'</td></tr>';
-    }).join('')+'</tbody></table>';
+      return '<tr><td><div style="display:flex;align-items:center;gap:8px">'+
+        '<div class="av">'+r.name.slice(0,2).toUpperCase()+'</div>'+
+        '<div><div style="font-weight:600">'+r.name+'</div><div style="font-size:11px;color:var(--t3)">'+r.note+'</div></div>'+
+        '</div></td>'+
+        '<td style="text-align:center">'+
+          '<div style="display:flex;align-items:center;justify-content:center;gap:6px">'+
+          '<input type="number" min="0" value="'+avail+'" style="width:60px;text-align:center;padding:4px 6px;border:1px solid var(--bd2);border-radius:6px;background:rgba(22,36,64,0.6);color:var(--t1);font-size:13px" onchange="setPortfolioAvail(\''+r.id+'\',this.value)">'+
+          '<span style="font-size:11px;color:var(--t4)">/ '+workDays+' working days</span>'+
+          '</div>'+
+        '</td>'+
+        '<td style="text-align:center;font-weight:500">'+a+' days</td>'+
+        '<td><div style="display:flex;align-items:center;gap:8px">'+
+          '<div class="ubarW"><div class="ubarF" style="width:'+(up*100).toFixed(0)+'%;background:'+bc+'"></div></div>'+
+          '<span style="font-size:12px;font-weight:500;min-width:40px">'+pct(up)+'</span></div></td>'+
+        '<td style="text-align:right;font-weight:500;color:'+(i2>0?'var(--re)':'var(--t4)')+'">'+( i2>0?fmt(ic):'—')+'</td>'+
+        '</tr>';
+    }).join('')+
+    '</tbody></table>';
   document.getElementById('u-insight').innerHTML=idle>0?
-    '<div class="ins ins-w"><strong style="color:var(--am)">'+fN(idle)+' idle days</strong> this month. At '+fmt(cpd)+'/day, idle capacity costs <strong style="color:var(--am)">'+fmt(idle*cpd)+'</strong>.</div>':
-    '<div class="ins ins-s">All available capacity is assigned.</div>';
+    '<div class="ins ins-w"><strong style="color:var(--am)">'+idle+' idle days</strong> across portfolio. At '+fmt(cpd)+'/day total idle cost: <strong style="color:var(--am)">'+fmt(idle*cpd)+'</strong>.</div>':
+    '<div class="ins ins-s">All portfolio capacity is fully assigned.</div>';
 }
 
 function setDP(p,el){dp=p;document.querySelectorAll('#dp-seg .sb').forEach(b=>b.classList.remove('on'));el.classList.add('on');rDirect()}window.setDP=setDP;
@@ -650,6 +766,7 @@ function rCatBlocks(cats,cid,per){var container=document.getElementById(cid);con
   }).join('');div.innerHTML='<div class="cathdr" data-cid="'+cat.id+'" onclick="toggleCat(this.dataset.cid)"><div class="fl"><div class="catdot" style="background:'+cat.color+'"></div><span style="font-size:13px;font-weight:600;color:var(--t1)">'+cat.name+'</span><span style="font-size:11px;color:var(--t3);margin-left:4px">'+cat.items.length+' items</span></div><div style="display:flex;align-items:center;gap:10px"><span style="font-size:14px;font-weight:600">'+fmt(ct)+'</span><span style="color:var(--t3);font-size:11px">'+(cat.open?'▴':'▾')+'</span></div></div>'+(cat.open?'<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Name</th><th>Tag</th><th>Freq</th><th style="text-align:right">Monthly</th><th style="text-align:right;color:#818cf8">Yearly</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div><div style="padding:9px 14px;border-top:1px solid var(--bd);display:flex;gap:8px"><button class="btn btng btns" data-cid="'+cat.id+'" data-ctype="'+cat.type+'" onclick="openAddItem(this.dataset.cid,this.dataset.ctype)">+ Add item</button><button class="btn btns" style="color:var(--re);background:var(--reb);border-color:var(--red)" data-cid="'+cat.id+'" onclick="delCat(this.dataset.cid)">Delete category</button></div>':'');container.appendChild(div);});}
 window.toggleCat=(id)=>{var c=allCats().find(x=>x.id===id);if(c)c.open=!c.open;rDirect();rIndirect()};
 window.setAvailDays=(itemId,val)=>{var item=allItems().find(i=>i.id===itemId);if(item){item.availableDays=Math.max(0,Math.min(31,parseInt(val)||0));saveD();rDirect();}};
+window.setPortfolioAvail=function(itemId,val){var item=allItems().find(function(i){return i.id===itemId;});if(item){item.portfolioAvailDays=Math.max(0,parseInt(val)||0);saveD();rUtil();rStudio();}};
 
 function openMod(title,bodyHTML,okFn){document.getElementById('m-title').textContent=title;document.getElementById('m-sub').style.display='none';document.getElementById('m-body').innerHTML=bodyHTML;document.getElementById('m-ok').onclick=okFn;document.getElementById('modal').classList.add('open')}
 function closeMod(){document.getElementById('modal').classList.remove('open')}
