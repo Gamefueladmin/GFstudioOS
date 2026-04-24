@@ -560,33 +560,41 @@ window.toggleIconGrid=()=>{var g=document.getElementById('icon-grid');if(g)g.cla
 
 function rResources(){
   var sharedTotal=totalShared(),n=billableCount(),perRes=n>0?sharedTotal/n:0;
-  document.getElementById('res-body').innerHTML=
+  var el=document.getElementById('res-body');
+  el.innerHTML=
     '<div class="g4" style="margin-bottom:20px">'+
     '<div class="mc"><div class="mcl">Total resources</div><div class="mcv">'+( D.resources||[]).length+'</div></div>'+
     '<div class="mc"><div class="mcl">Shared cost / resource</div><div class="mcv" style="color:#818cf8">'+fmt(perRes)+'</div></div>'+
     '<div class="mc"><div class="mcl">Monthly studio burn</div><div class="mcv">'+fmt(totalStudioBurn())+'</div></div>'+
     '<div class="mc"><div class="mcl">Avg daily rate</div><div class="mcv">'+fmt((D.resources||[]).reduce((s,r)=>s+dailyRate(r),0)/Math.max((D.resources||[]).length,1))+'</div></div>'+
-    '</div>'+
-    (D.resources||[]).map(r=>{
-      var loaded=loadedMonthlyCost(r),rate=dailyRate(r),unitTotal=unitCostTotal(r);
-      var unitRows=(r.unitCosts||[]).map(u=>'<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bd);font-size:12px"><span style="color:var(--t2)">'+u.name+'</span><span>'+fmt(u.amount)+'/mo</span></div>').join('');
-      return '<div class="card" style="margin-bottom:12px">'+
-        '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">'+
-        '<div style="display:flex;align-items:center;gap:10px"><div class="av" style="width:40px;height:40px;font-size:14px">'+r.name.slice(0,2).toUpperCase()+'</div>'+
-        '<div><div style="font-size:15px;font-weight:700">'+r.name+'</div><div style="font-size:12px;color:var(--t3)">'+r.note+'</div></div></div>'+
-        '<div style="display:flex;gap:8px"><button class="btn btns" onclick="openEditResource(''+r.id+'')">Edit</button>'+
-        '<button class="btn btns btnd" onclick="delResource(''+r.id+'')">Delete</button></div></div>'+
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px">'+
-        '<div class="mc" style="padding:9px 11px"><div class="mcl">Salary</div><div style="font-size:14px;font-weight:700">'+fmt(r.salary)+'</div></div>'+
-        '<div class="mc" style="padding:9px 11px"><div class="mcl">Unit costs</div><div style="font-size:14px;font-weight:700">'+fmt(unitTotal)+'</div></div>'+
-        '<div class="mc" style="padding:9px 11px"><div class="mcl">Shared (1/'+n+')</div><div style="font-size:14px;font-weight:700">'+fmt(perRes)+'</div></div>'+
-        '<div class="mc" style="padding:9px 11px;background:rgba(99,102,241,0.12);border-color:rgba(99,102,241,0.3)"><div class="mcl" style="color:#818cf8">Loaded monthly</div><div style="font-size:14px;font-weight:700;color:#a5b4fc">'+fmt(loaded)+'</div></div></div>'+
-        '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(99,102,241,0.06);border-radius:8px;border:1px solid rgba(99,102,241,0.15);margin-bottom:'+(unitRows?'12px':'0')+'">'+
-        '<span style="font-size:12px;color:var(--t3)">Available: <strong style="color:var(--t1)">'+(r.availableDays||D.wd)+' / '+D.wd+' days</strong></span>'+
-        '<span style="font-size:14px;font-weight:700;color:#818cf8">'+fmt(rate)+' / day</span></div>'+
-        (unitRows?'<div><div class="ct">Unit costs specific to this resource</div>'+unitRows+'</div>':'')+
-        '</div>';
-    }).join('')||'<div style="color:var(--t4);text-align:center;padding:40px">No resources yet.</div>';
+    '</div>';
+  (D.resources||[]).forEach(r=>{
+    var loaded=loadedMonthlyCost(r),rate=dailyRate(r),unitTotal=unitCostTotal(r);
+    var card=document.createElement('div');
+    card.className='card';card.style.marginBottom='12px';
+    var unitRows=(r.unitCosts||[]).map(u=>'<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bd);font-size:12px"><span style="color:var(--t2)">'+u.name+'</span><span>'+fmt(u.amount)+'/mo</span></div>').join('');
+    card.innerHTML=
+      '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">'+
+      '<div style="display:flex;align-items:center;gap:10px">'+
+      '<div class="av" style="width:40px;height:40px;font-size:14px">'+r.name.slice(0,2).toUpperCase()+'</div>'+
+      '<div><div style="font-size:15px;font-weight:700">'+r.name+'</div><div style="font-size:12px;color:var(--t3)">'+r.note+'</div></div></div>'+
+      '<div style="display:flex;gap:8px">'+
+      '<button class="btn btns res-edit-btn">Edit</button>'+
+      '<button class="btn btns btnd res-del-btn">Delete</button></div></div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px">'+
+      '<div class="mc" style="padding:9px 11px"><div class="mcl">Salary</div><div style="font-size:14px;font-weight:700">'+fmt(r.salary)+'</div></div>'+
+      '<div class="mc" style="padding:9px 11px"><div class="mcl">Unit costs</div><div style="font-size:14px;font-weight:700">'+fmt(unitTotal)+'</div></div>'+
+      '<div class="mc" style="padding:9px 11px"><div class="mcl">Shared (1/'+n+')</div><div style="font-size:14px;font-weight:700">'+fmt(perRes)+'</div></div>'+
+      '<div class="mc" style="padding:9px 11px;background:rgba(99,102,241,0.12);border-color:rgba(99,102,241,0.3)"><div class="mcl" style="color:#818cf8">Loaded monthly</div><div style="font-size:14px;font-weight:700;color:#a5b4fc">'+fmt(loaded)+'</div></div></div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(99,102,241,0.06);border-radius:8px;border:1px solid rgba(99,102,241,0.15);margin-bottom:'+(unitRows?'12px':'0')+'">'+
+      '<span style="font-size:12px;color:var(--t3)">Available: <strong style="color:var(--t1)">'+(r.availableDays||D.wd)+' / '+D.wd+' days</strong></span>'+
+      '<span style="font-size:14px;font-weight:700;color:#818cf8">'+fmt(rate)+' / day</span></div>'+
+      (unitRows?'<div><div class="ct">Unit costs specific to this resource</div>'+unitRows+'</div>':'');
+    card.querySelector('.res-edit-btn').addEventListener('click',()=>openEditResource(r.id));
+    card.querySelector('.res-del-btn').addEventListener('click',()=>delResource(r.id));
+    el.appendChild(card);
+  });
+  if(!(D.resources||[]).length){el.innerHTML+='<div style="color:var(--t4);text-align:center;padding:40px">No resources yet.</div>';}
 }
 
 function openEditResource(rid){
@@ -634,25 +642,33 @@ window.delResource=(rid)=>{if(confirm('Delete this resource?')){D.resources=(D.r
 
 function rCosts(){
   var n=billableCount(),perRes=n>0?totalShared()/n:0;
-  var rows=(D.sharedCosts||[]).map(c=>
-    '<tr><td style="font-weight:500">'+c.name+(c.note?'<div style="font-size:11px;color:var(--t3)">'+c.note+'</div>':'')+'</td>'+
-    '<td><span class="bdg bgn" style="font-size:10px">'+c.category+'</span></td>'+
-    '<td style="text-align:right;color:var(--t2)">'+fmt(c.amount)+'</td>'+
-    '<td style="text-align:right;color:#818cf8">'+fmt(c.amount*12)+'</td>'+
-    '<td style="text-align:right;color:var(--t3);font-size:12px">'+fmt(n>0?c.amount/n:0)+'/res</td>'+
-    '<td style="text-align:right;white-space:nowrap">'+
-    '<button class="btn btng btns" onclick="openEditCost(''+c.id+'')">✎</button>'+
-    '<button class="btn btns btnd" onclick="delCost(''+c.id+'')">✕</button></td></tr>').join('');
-  document.getElementById('costs-body').innerHTML=
+  var el=document.getElementById('costs-body');
+  el.innerHTML=
     '<div class="g4" style="margin-bottom:20px">'+
     '<div class="mc"><div class="mcl">Total shared monthly</div><div class="mcv" style="color:#34d399">'+fmt(totalShared())+'</div></div>'+
     '<div class="mc"><div class="mcl">Per resource share</div><div class="mcv">'+fmt(perRes)+'</div></div>'+
     '<div class="mc"><div class="mcl">Billable resources</div><div class="mcv">'+n+'</div></div>'+
     '<div class="mc"><div class="mcl">Yearly total</div><div class="mcv">'+fmt(totalShared()*12)+'</div></div></div>'+
     '<div class="card"><div class="ct">Shared costs — divided equally across all '+n+' billable resources</div>'+
-    '<table class="tbl"><thead><tr><th>Name</th><th>Category</th><th style="text-align:right">Monthly</th><th style="text-align:right;color:#818cf8">Yearly</th><th style="text-align:right">Per resource</th><th></th></tr></thead>'+
-    '<tbody>'+rows+'</tbody></table></div>';
+    '<table class="tbl"><thead><tr><th>Name</th><th>Category</th><th style="text-align:right">Monthly</th><th style="text-align:right;color:#818cf8">Yearly</th><th style="text-align:right">Per resource</th><th></th></tr></thead><tbody id="costs-rows"></tbody></table></div>';
+  var tbody=document.getElementById('costs-rows');
+  (D.sharedCosts||[]).forEach(c=>{
+    var tr=document.createElement('tr');
+    tr.innerHTML=
+      '<td style="font-weight:500">'+c.name+(c.note?'<div style="font-size:11px;color:var(--t3)">'+c.note+'</div>':'')+'</td>'+
+      '<td><span class="bdg bgn" style="font-size:10px">'+c.category+'</span></td>'+
+      '<td style="text-align:right;color:var(--t2)">'+fmt(c.amount)+'</td>'+
+      '<td style="text-align:right;color:#818cf8">'+fmt(c.amount*12)+'</td>'+
+      '<td style="text-align:right;color:var(--t3);font-size:12px">'+fmt(n>0?c.amount/n:0)+'/res</td>'+
+      '<td style="text-align:right;white-space:nowrap">'+
+      '<button class="btn btng btns cost-edit-btn">✎</button>'+
+      '<button class="btn btns btnd cost-del-btn">✕</button></td>';
+    tr.querySelector('.cost-edit-btn').addEventListener('click',()=>openEditCost(c.id));
+    tr.querySelector('.cost-del-btn').addEventListener('click',()=>delCost(c.id));
+    tbody.appendChild(tr);
+  });
 }
+
 function openEditCost(cid){
   var c=cid?(D.sharedCosts||[]).find(x=>x.id===cid):null;
   var cats=['Operations','Software','Support','Leadership','Marketing','Hardware','Other'];
@@ -739,6 +755,7 @@ document.getElementById('modal').addEventListener('click',e=>{if(e.target===docu
 document.getElementById('btn-newproj').addEventListener('click',()=>openProjForm(null));
 document.getElementById('btn-addres').addEventListener('click',()=>openEditResource(null));
 document.getElementById('btn-addcost').addEventListener('click',()=>openEditCost(null));
+
 
 </script>
 </body>
