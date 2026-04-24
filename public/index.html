@@ -454,35 +454,74 @@ function expSwitchTab(tab){
   document.getElementById('exp-pane-indirect').className='exp-pane'+(tab==='indirect'?' on':'');
 }
 window.expSwitchTab=expSwitchTab;
-function renderExpDirectRows(){
+function buildExpDirectRows(){
   var p=D.projects.find(x=>x.id===window._pid);if(!p)return;
   var res=bRes(),u=p.util||su;
-  var total=expDRows.reduce((s,row)=>{var r=res.find(x=>x.id===row.rid);return s+(r&&row.days?dRate(r,u)*parseFloat(row.days||0):0)},0);
   document.getElementById('exp-direct-rows').innerHTML=expDRows.map((row,idx)=>{
     var r=res.find(x=>x.id===row.rid),cost=r&&row.days?dRate(r,u)*parseFloat(row.days||0):0;
     var opts=res.map(rx=>'<option value="'+rx.id+'"'+(rx.id===row.rid?' selected':'')+'>'+(rx.name+(rx.note?' - '+rx.note:''))+'</option>').join('');
-    return '<div class="exp-row-item dg"><div class="sel-wrap"><select onchange="expDChange('+idx+',\'rid\',this.value)">'+opts+'</select></div><input class="ef-inp" type="text" placeholder="Function" value="'+(row.func||'')+'" oninput="expDChange('+idx+',\'func\',this.value)"><input class="ef-inp" type="number" min="0" placeholder="0" value="'+(row.days||'')+'" oninput="expDChange('+idx+',\'days\',this.value)" style="text-align:center"><div class="ef-cost blue">'+fmt(cost)+'</div><button class="ef-del" onclick="expDDel('+idx+')">✕</button></div>';
+    return '<div class="exp-row-item dg" data-idx="'+idx+'"><div class="sel-wrap"><select onchange="expDChange('+idx+',\'rid\',this.value)">'+opts+'</select></div><input class="ef-inp" type="text" placeholder="Function" value="'+(row.func||'')+'" data-field="func" data-idx="'+idx+'"><input class="ef-inp ed-days" type="number" min="0" placeholder="0" value="'+(row.days||'')+'" data-field="days" data-idx="'+idx+'" style="text-align:center"><div class="ef-cost blue" id="ed-cost-'+idx+'">'+fmt(cost)+'</div><button class="ef-del" onclick="expDDel('+idx+')">✕</button></div>';
   }).join('')||'<div style="color:var(--t4);font-size:13px;padding:8px 0">No resources added.</div>';
-  document.getElementById('exp-direct-total').textContent=fmt(total);
+  updateExpDirectTotal();
+  // Attach input listeners without re-rendering
+  document.querySelectorAll('#exp-direct-rows input[data-field]').forEach(inp=>{
+    inp.addEventListener('input',function(){
+      var idx=parseInt(this.dataset.idx),field=this.dataset.field;
+      expDRows[idx][field]=this.value;
+      updateExpDirectTotal();
+    });
+  });
 }
-function renderExpIndirectRows(){
+function updateExpDirectTotal(){
+  var p=D.projects.find(x=>x.id===window._pid);if(!p)return;
+  var res=bRes(),u=p.util||su;
+  var total=expDRows.reduce((s,row,idx)=>{
+    var r=res.find(x=>x.id===row.rid),cost=r&&row.days?dRate(r,u)*parseFloat(row.days||0):0;
+    var costEl=document.getElementById('ed-cost-'+idx);if(costEl)costEl.textContent=fmt(cost);
+    return s+cost;
+  },0);
+  var el=document.getElementById('exp-direct-total');if(el)el.textContent=fmt(total);
+}
+function renderExpDirectRows(){buildExpDirectRows();}
+function buildExpIndirectRows(){
   var ii=D.indirect.reduce((a,c)=>a.concat(c.items.map(i=>Object.assign({},i,{catId:c.id,catName:c.name}))),[]);
   var cats=D.indirect.map(c=>({id:c.id,name:c.name}));
-  var total=expIRows.reduce((s,row)=>{var item=ii.find(x=>x.id===row.iid);return s+(item?mlc(item)*(parseFloat(row.alloc)||0)/100*(parseFloat(row.count)||1):0)},0);
   document.getElementById('exp-indirect-rows').innerHTML=expIRows.map((row,idx)=>{
     var item=ii.find(x=>x.id===row.iid),cost=item?mlc(item)*(parseFloat(row.alloc)||0)/100*(parseFloat(row.count)||1):0;
     var iOpts=ii.map(it=>'<option value="'+it.id+'"'+(it.id===row.iid?' selected':'')+'>'+it.name+'</option>').join('');
     var cOpts=cats.map(ct=>'<option value="'+ct.id+'"'+(item&&item.catId===ct.id?' selected':'')+'>'+ct.name+'</option>').join('');
-    return '<div class="exp-row-item ig"><div class="sel-wrap"><select onchange="expIChange('+idx+',\'iid\',this.value)">'+iOpts+'</select></div><div class="sel-wrap"><select onchange="expIChange('+idx+',\'cat\',this.value)">'+cOpts+'</select></div><div style="display:flex;align-items:center;gap:4px"><input class="ef-inp" type="number" min="0" max="100" placeholder="100" value="'+(row.alloc||'')+'" oninput="expIChange('+idx+',\'alloc\',this.value)" style="text-align:center"><span style="color:var(--t4);font-size:12px">%</span></div><input class="ef-inp" type="number" min="1" placeholder="1" value="'+(row.count||'')+'" oninput="expIChange('+idx+',\'count\',this.value)" style="text-align:center"><div class="ef-cost green">'+fmt(cost)+'</div><button class="ef-del" onclick="expIDel('+idx+')">✕</button></div>';
+    return '<div class="exp-row-item ig" data-idx="'+idx+'"><div class="sel-wrap"><select onchange="expIChange('+idx+',\'iid\',this.value)">'+iOpts+'</select></div><div class="sel-wrap"><select onchange="expIChange('+idx+',\'cat\',this.value)">'+cOpts+'</select></div><div style="display:flex;align-items:center;gap:4px"><input class="ef-inp" type="number" min="0" max="100" placeholder="100" value="'+(row.alloc||'')+'" data-field="alloc" data-idx="'+idx+'" style="text-align:center"><span style="color:var(--t4);font-size:12px">%</span></div><input class="ef-inp" type="number" min="1" placeholder="1" value="'+(row.count||'')+'" data-field="count" data-idx="'+idx+'" style="text-align:center"><div class="ef-cost green" id="ei-cost-'+idx+'">'+fmt(cost)+'</div><button class="ef-del" onclick="expIDel('+idx+')">✕</button></div>';
   }).join('')||'<div style="color:var(--t4);font-size:13px;padding:8px 0">No indirect expenses.</div>';
-  document.getElementById('exp-indirect-total').textContent=fmt(total);
+  updateExpIndirectTotal();
+  document.querySelectorAll('#exp-indirect-rows input[data-field]').forEach(inp=>{
+    inp.addEventListener('input',function(){
+      var idx=parseInt(this.dataset.idx),field=this.dataset.field;
+      expIRows[idx][field]=this.value;
+      updateExpIndirectTotal();
+    });
+  });
 }
-window.expDChange=(idx,f,v)=>{expDRows[idx][f]=v;renderExpDirectRows()};
-window.expIChange=(idx,f,v)=>{expIRows[idx][f]=v;renderExpIndirectRows()};
-window.expDDel=(idx)=>{if(expDRows.length>1)expDRows.splice(idx,1);renderExpDirectRows()};
-window.expIDel=(idx)=>{if(expIRows.length>1)expIRows.splice(idx,1);renderExpIndirectRows()};
-window.expAddDirectRow=()=>{var res=bRes();expDRows.push({rid:res[0]?res[0].id:'',func:'',days:''});renderExpDirectRows()};
-window.expAddIndirectRow=()=>{var ii=D.indirect.reduce((a,c)=>a.concat(c.items),[]);expIRows.push({iid:ii[0]?ii[0].id:'',alloc:'',count:'',expId:null});renderExpIndirectRows()};
+function updateExpIndirectTotal(){
+  var ii=D.indirect.reduce((a,c)=>a.concat(c.items.map(i=>Object.assign({},i,{catId:c.id,catName:c.name}))),[]);
+  var total=expIRows.reduce((s,row,idx)=>{
+    var item=ii.find(x=>x.id===row.iid),cost=item?mlc(item)*(parseFloat(row.alloc)||0)/100*(parseFloat(row.count)||1):0;
+    var costEl=document.getElementById('ei-cost-'+idx);if(costEl)costEl.textContent=fmt(cost);
+    return s+cost;
+  },0);
+  var el=document.getElementById('exp-indirect-total');if(el)el.textContent=fmt(total);
+}
+function renderExpIndirectRows(){buildExpIndirectRows();}
+window.expDChange=(idx,f,v)=>{expDRows[idx][f]=v;
+  // For select (rid) we rebuild to update displayed costs; inputs handled by listeners
+  if(f==='rid')buildExpDirectRows(); else updateExpDirectTotal();
+};
+window.expIChange=(idx,f,v)=>{expIRows[idx][f]=v;
+  if(f==='iid'||f==='cat')buildExpIndirectRows(); else updateExpIndirectTotal();
+};
+window.expDDel=(idx)=>{if(expDRows.length>1)expDRows.splice(idx,1);buildExpDirectRows();};
+window.expIDel=(idx)=>{if(expIRows.length>1)expIRows.splice(idx,1);buildExpIndirectRows();};
+window.expAddDirectRow=()=>{var res=bRes();expDRows.push({rid:res[0]?res[0].id:'',func:'',days:''});buildExpDirectRows();};
+window.expAddIndirectRow=()=>{var ii=D.indirect.reduce((a,c)=>a.concat(c.items),[]);expIRows.push({iid:ii[0]?ii[0].id:'',alloc:'',count:'',expId:null});buildExpIndirectRows();};
 window.saveDirectExp=()=>{
   var p=D.projects.find(x=>x.id===window._pid);if(!p)return;
   var res=bRes();res.forEach(r=>p.alloc[r.id]=0);
@@ -490,6 +529,11 @@ window.saveDirectExp=()=>{
   saveD();closeExpModal();rProjDetail();
 };
 window.saveIndirectExp=()=>{
+  // Sync any unsynced input values from DOM
+  document.querySelectorAll('#exp-indirect-rows input[data-field]').forEach(inp=>{
+    var idx=parseInt(inp.dataset.idx),field=inp.dataset.field;
+    if(expIRows[idx])expIRows[idx][field]=inp.value;
+  });
   var p=D.projects.find(x=>x.id===window._pid);if(!p)return;
   var ii=D.indirect.reduce((a,c)=>a.concat(c.items.map(i=>Object.assign({},i,{catName:c.name}))),[]);
   p.expenses=(p.expenses||[]).filter(e=>e.type!=='indirect');
@@ -515,8 +559,7 @@ function openProjForm(existing){
     '<div class="fgrid-2" style="margin-top:10px"><div class="fgroup"><label>Contact email</label><input class="inp" id="np-cemail" value="'+(existing?existing.clientEmail:'')+'" placeholder="raj@acme.com"></div><div class="fgroup"><label>Contact phone</label><input class="inp" id="np-cphone" value="'+(existing?existing.clientPhone:'')+'" placeholder="+91 98765 43210"></div></div>'+
     '<div class="fsec-title">Project dates</div>'+
     '<div class="fgrid-2"><div class="fgroup"><label>Projected start</label><input class="inp" id="np-start" type="date" value="'+(existing?existing.startDate:'')+'" style="color-scheme:dark"></div><div class="fgroup"><label>Projected end</label><input class="inp" id="np-end" type="date" value="'+(existing?existing.endDate:'')+'" style="color-scheme:dark"></div></div>'+
-    '<div class="fsec-title">Resource day allocation</div>'+
-    '<div class="frow" style="margin-bottom:10px"><span class="flbl" style="font-size:12px">Utilization</span><div class="seg" id="np-util-seg">'+[0.5,0.7,1.0].map(u=>'<button class="sb'+((!existing&&u===0.7)||(existing&&existing.util===u)?' on':'')+'" data-u="'+u+'" onclick="pickNPUtil(this)">'+Math.round(u*100)+'%</button>').join('')+'</div></div>'+resInputs;
+    '<div class="fsec-title">Resource day allocation</div>'+resInputs;
   document.getElementById('m-ok').onclick=()=>{
     var alloc={};bRes().forEach(r=>{alloc[r.id]=parseFloat((document.getElementById('np-'+r.id)||{}).value)||0});
     var selU=document.querySelector('#np-util-seg .sb.on'),util=selU?parseFloat(selU.dataset.u):0.7;
