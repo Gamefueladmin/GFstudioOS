@@ -198,8 +198,8 @@ select.inp option{background:#111e33}
     </button>
   </div>
   <div style="padding:8px 18px 4px">
-    <button class="ni" id="ni-direct" onclick="go('direct')" style="padding:7px 0;font-size:11px"><div class="ndot" style="background:#818cf8"></div>Direct costs</button>
-    <button class="ni" id="ni-indirect" onclick="go('indirect')" style="padding:7px 0;font-size:11px"><div class="ndot" style="background:#34d399"></div>Indirect costs</button>
+    <button class="ni" id="ni-resources" onclick="go('resources')" style="padding:7px 0;font-size:11px"><div class="ndot" style="background:#818cf8"></div>Resources</button>
+    <button class="ni" id="ni-costs" onclick="go('costs')" style="padding:7px 0;font-size:11px"><div class="ndot" style="background:#34d399"></div>Shared costs</button>
   </div>
   <div class="nav-user">
     <img class="nav-av" id="nav-av" src="" alt="">
@@ -253,20 +253,18 @@ select.inp option{background:#111e33}
   <div class="card"><div class="ct">Idle cost insight</div><div id="u-insight"></div></div>
 </div>
 
-<div id="scr-direct" class="scr">
-  <div class="pgtop"><div><div class="pgtitle">Direct costs</div></div>
-    <div class="fl"><div class="seg" id="dp-seg"><button class="sb sbp on" onclick="setDP('monthly',this)">Monthly</button><button class="sb sbp" onclick="setDP('yearly',this)">Yearly</button></div><button class="btn btnp btns" id="btn-adddir">+ Add resource</button></div>
+<div id="scr-resources" class="scr">
+  <div class="pgtop"><div><div class="pgtitle">Resources</div><div class="pgsub">Salary + unit tools + shared cost allocation</div></div>
+    <button class="btn btnp btns" id="btn-addres">+ Add resource</button>
   </div>
-  <div class="g4" id="dir-sum"></div><div id="dir-cats"></div>
-  <button class="btn" id="btn-adddicat" style="width:100%;border-style:dashed;color:var(--t4);margin-top:4px">+ Add category</button>
+  <div id="res-body"></div>
 </div>
 
-<div id="scr-indirect" class="scr">
-  <div class="pgtop"><div><div class="pgtitle">Indirect costs</div></div>
-    <div class="fl"><div class="seg" id="ip-seg"><button class="sb sbp on" onclick="setIP('monthly',this)">Monthly</button><button class="sb sbp" onclick="setIP('yearly',this)">Yearly</button></div><button class="btn btnp btns" id="btn-addind">+ Add cost head</button></div>
+<div id="scr-costs" class="scr">
+  <div class="pgtop"><div><div class="pgtitle">Shared costs</div><div class="pgsub">Split equally across all billable resources</div></div>
+    <button class="btn btnp btns" id="btn-addcost">+ Add cost</button>
   </div>
-  <div class="g4" id="ind-sum"></div><div id="ind-cats"></div>
-  <button class="btn" id="btn-addincat" style="width:100%;border-style:dashed;color:var(--t4);margin-top:4px">+ Add category</button>
+  <div id="costs-body"></div>
 </div>
 
 </div>
@@ -277,29 +275,8 @@ select.inp option{background:#111e33}
   </div>
 </div>
 
-<div class="exp-modal-bg" id="exp-modal">
-  <div class="exp-modal">
-    <div class="exp-tab-bar">
-      <div class="exp-tab active-direct" id="exp-tab-direct" onclick="expSwitchTab('direct')">Add Direct Expense</div>
-      <div class="exp-tab inactive" id="exp-tab-indirect" onclick="expSwitchTab('indirect')">Add Indirect Expense</div>
-    </div>
-    <div class="exp-pane on" id="exp-pane-direct">
-      <div class="exp-col-hdr dg"><div class="exp-col-label">Resource</div><div class="exp-col-label">Function</div><div class="exp-col-label">Man-days</div><div class="exp-col-label">Cost</div><div></div></div>
-      <div class="exp-rows" id="exp-direct-rows"></div>
-      <div class="exp-add-link"><button class="blue" onclick="expAddDirectRow()">+ Add resource</button></div>
-      <div class="exp-footer"><span class="exp-footer-label blue">Total Direct Expense</span><span class="exp-footer-val" id="exp-direct-total">&#8377;0</span></div>
-      <div class="exp-save-row"><button class="btn btns" onclick="closeExpModal()">Cancel</button><button class="btn btns" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;box-shadow:0 4px 15px rgba(99,102,241,0.3)" onclick="saveDirectExp()">Save Direct</button></div>
-    </div>
-    <div class="exp-pane" id="exp-pane-indirect">
-      <div class="exp-col-hdr ig"><div class="exp-col-label">Indirect Expense Head</div><div class="exp-col-label">Category</div><div class="exp-col-label">Allocation %</div><div class="exp-col-label">Count</div><div class="exp-col-label">Cost</div><div></div></div>
-      <div class="exp-rows" id="exp-indirect-rows"></div>
-      <div class="exp-add-link"><button class="green" onclick="expAddIndirectRow()">+ Add Indirect Expense</button></div>
-      <div class="exp-footer"><span class="exp-footer-label green">Total Indirect Expense</span><span class="exp-footer-val" id="exp-indirect-total">&#8377;0</span></div>
-      <div class="exp-save-row"><button class="btn btns" onclick="closeExpModal()">Cancel</button><button class="btn btns" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;box-shadow:0 4px 15px rgba(16,185,129,0.3)" onclick="saveIndirectExp()">Save Indirect</button></div>
-    </div>
-  </div>
 </div>
-</div>
+
 <script type="module">
 import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import{getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
@@ -310,27 +287,41 @@ const auth=getAuth(fbApp),db=getFirestore(fbApp),provider=new GoogleAuthProvider
 const DOC='studioOS/shared';
 
 const DEF={studioName:'GAMEFUEL',wd:20,
-  direct:[{id:'d0',name:'Resources & Salaries',color:'#818cf8',type:'direct',open:true,items:[
-    {id:'r0',name:'Deepam',note:'Senior Artist',freq:'Monthly',amount:144000,life:null,tag:'Billable',availableDays:20,portfolioAvailDays:0},
-    {id:'r1',name:'Sreekant',note:'Artist',freq:'Monthly',amount:100000,life:null,tag:'Billable',availableDays:20,portfolioAvailDays:0},
-    {id:'r2',name:'Chandan',note:'Artist',freq:'Monthly',amount:120000,life:null,tag:'Billable',availableDays:20,portfolioAvailDays:0},
-    {id:'r3',name:'Shubham',note:'Junior Artist',freq:'Monthly',amount:46000,life:null,tag:'Billable',availableDays:20,portfolioAvailDays:0}]}],
-  indirect:[
-    {id:'i0',name:'Operations',color:'#34d399',type:'indirect',open:true,items:[{id:'io0',name:'Electricity',note:'',freq:'Monthly',amount:3333,life:null,tag:''},{id:'io1',name:'Internet',note:'',freq:'Monthly',amount:1179,life:null,tag:''}]},
-    {id:'i1',name:'Software',color:'#fbbf24',type:'indirect',open:true,items:[{id:'is0',name:'Figma',note:'Design',freq:'Monthly',amount:3712,life:null,tag:''},{id:'is1',name:'Google Workspace',note:'',freq:'Monthly',amount:23313,life:null,tag:''},{id:'is2',name:'Adobe',note:'',freq:'Monthly',amount:9714,life:null,tag:''},{id:'is3',name:'Maya',note:'3D',freq:'Monthly',amount:14578,life:null,tag:''},{id:'is4',name:'ZBrush',note:'',freq:'Monthly',amount:5912,life:null,tag:''},{id:'is5',name:'AI Tools',note:'',freq:'Monthly',amount:17556,life:null,tag:''},{id:'is6',name:'Other SaaS',note:'',freq:'Monthly',amount:6881,life:null,tag:''}]},
-    {id:'i2',name:'Infrastructure',color:'#f87171',type:'indirect',open:true,items:[{id:'ii0',name:'Computer EMI',note:'',freq:'Monthly',amount:50000,life:null,tag:''},{id:'ii1',name:'Office Rent',note:'',freq:'Monthly',amount:30000,life:null,tag:''},{id:'ii2',name:'Furniture',note:'',freq:'Capex',amount:91000,life:36,tag:''},{id:'ii3',name:'Power / AC',note:'',freq:'Capex',amount:130000,life:36,tag:''}]},
-    {id:'i3',name:'Marketing',color:'#c084fc',type:'indirect',open:true,items:[{id:'im0',name:'Marketing',note:'',freq:'Monthly',amount:20000,life:null,tag:''}]},
-    {id:'i4',name:'Support',color:'#67e8f9',type:'indirect',open:true,items:[{id:'su0',name:'HR Salary',note:'',freq:'Monthly',amount:50000,life:null,tag:'Non-billable'},{id:'su1',name:'Accountant',note:'',freq:'Monthly',amount:16000,life:null,tag:'Non-billable'}]},
-    {id:'i5',name:'Management',color:'#fb923c',type:'indirect',open:true,items:[{id:'mg0',name:'Lokesh',note:'Director',freq:'Monthly',amount:206617,life:null,tag:'Non-billable'},{id:'mg1',name:'Hrishi',note:'Manager',freq:'Monthly',amount:135207,life:null,tag:'Non-billable'}]}],
-  projects:[{id:'p0',icon:'🚀',name:'WG',manager:'',billingModel:'Fixed Price',agreedPrice:352800,plannedCost:0,clientName:'Acme Corp',clientContact:'',clientEmail:'',clientPhone:'',wadSow:'SOW-2024-001',wadSigned:'',ndaSigned:'',startDate:'',endDate:'',actualStart:'',actualEnd:'',projectType:'UI/UX',projectStatus:'Active',projectCode:'WYG-TOW',extCost:35000,tools:0,util:0.7,alloc:{r0:10,r1:8,r2:12,r3:5},expenses:[{id:'e0',type:'indirect',sourceId:'is0',name:'Figma',note:'Design',amount:3712,freq:'Monthly',useCustom:false,customAmount:3712},{id:'e1',type:'indirect',sourceId:'is3',name:'Maya',note:'3D',amount:14578,freq:'Monthly',useCustom:false,customAmount:14578}]}]};
+  sharedCosts:[
+    {id:'sc0',name:'Leadership',note:'Lokesh + Hrishi',amount:341824,category:'Leadership'},
+    {id:'sc1',name:'Support',note:'HR + Accounts + Maid',amount:82000,category:'Support'},
+    {id:'sc2',name:'Operations',note:'Rent + Internet + Furniture + Misc',amount:77163,category:'Operations'},
+    {id:'sc3',name:'Marketing',note:'',amount:16667,category:'Marketing'},
+    {id:'sc4',name:'Hardware',note:'Computer EMI',amount:10000,category:'Hardware'},
+    {id:'sc5',name:'AI Tools',note:'ChatGPT + Claude',amount:3892,category:'Software'},
+    {id:'sc6',name:'Slack',note:'',amount:300,category:'Software'},
+    {id:'sc7',name:'Office 365',note:'',amount:910,category:'Software'},
+  ],
+  resources:[
+    {id:'r0',name:'Deepam',note:'Senior Artist',salary:144000,availableDays:20,tag:'Billable',
+     unitCosts:[{id:'u0',name:'Adobe Photoshop',amount:514},{id:'u1',name:'Google Workspace',amount:1040}]},
+    {id:'r1',name:'Sreekant',note:'Artist',salary:100000,availableDays:20,tag:'Billable',
+     unitCosts:[{id:'u0',name:'Google Workspace',amount:1040},{id:'u1',name:'ZBrush',amount:5912}]},
+    {id:'r2',name:'Chandan',note:'Artist',salary:120000,availableDays:20,tag:'Billable',
+     unitCosts:[{id:'u0',name:'Google Workspace',amount:1040},{id:'u1',name:'3D Software',amount:14578},{id:'u2',name:'ZBrush',amount:5912}]},
+    {id:'r3',name:'Shubham',note:'Junior Artist',salary:46000,availableDays:20,tag:'Billable',
+     unitCosts:[{id:'u0',name:'Google Workspace',amount:1040}]},
+  ],
+  projects:[
+    {id:'p0',icon:'🚀',name:'WG',manager:'Lokesh Suri',billingModel:'Fixed Price',agreedPrice:352800,
+     clientName:'Acme Corp',clientContact:'',clientEmail:'',clientPhone:'',
+     startDate:'',endDate:'',projectType:'UI/UX',projectStatus:'Active',projectCode:'WYG-TOW',
+     extCost:35000,alloc:{r0:10,r1:8,r2:12,r3:5}}
+  ]};
 
 let D=JSON.parse(JSON.stringify(DEF));
 let _st=null,_sk=false,_un=null;
 
 function setSyncDot(s){var d=document.getElementById('sync-dot');if(d)d.className='sync-dot'+(s?' '+s:'');}
 async function saveD(){setSyncDot('saving');clearTimeout(_st);_st=setTimeout(async()=>{try{_sk=true;await setDoc(doc(db,DOC),D);setSyncDot('saved');setTimeout(()=>setSyncDot(''),2000);}catch(e){console.error(e);setSyncDot('');}},800);}
-async function loadD(){try{var s=await getDoc(doc(db,DOC));if(s.exists()){D=s.data();D.direct=D.direct||DEF.direct;D.indirect=D.indirect||DEF.indirect;D.projects=D.projects||DEF.projects;}else{await setDoc(doc(db,DOC),D);}}catch(e){console.error(e);}}
-function startListener(){if(_un)_un();_un=onSnapshot(doc(db,DOC),s=>{if(_sk){_sk=false;return;}if(s.exists()){D=s.data();D.direct=D.direct||DEF.direct;D.indirect=D.indirect||DEF.indirect;D.projects=D.projects||DEF.projects;var a=document.querySelector('.scr.on');if(a){var id=a.id.replace('scr-','');({studio:rStudio,projects:rProjects,quote:rQuote,util:rUtil,direct:rDirect,indirect:rIndirect})[id]?.();}}});}
+async function loadD(){try{var s=await getDoc(doc(db,DOC));if(s.exists()){var ld=s.data();if(ld.resources&&ld.resources.length){D=ld;D.resources=D.resources||DEF.resources;D.sharedCosts=D.sharedCosts||DEF.sharedCosts;D.projects=D.projects||DEF.projects;}else{await setDoc(doc(db,DOC),D);}}else{await setDoc(doc(db,DOC),D);}}catch(e){console.error(e);}}
+function startListener(){if(_un)_un();_un=onSnapshot(doc(db,DOC),s=>{if(_sk){_sk=false;return;}if(s.exists()){var ld=s.data();if(ld.resources){D=ld;D.resources=D.resources||DEF.resources;D.sharedCosts=D.sharedCosts||DEF.sharedCosts;D.projects=D.projects||DEF.projects;rerender();}}});}
+function rerender(){var a=document.querySelector('.scr.on');if(a){var id=a.id.replace('scr-','');({studio:rStudio,projects:rProjects,resources:rResources,costs:rCosts,quote:rQuote,util:rUtil})[id]?.();}}
 
 onAuthStateChanged(auth,async user=>{
   if(user){
@@ -350,167 +341,93 @@ onAuthStateChanged(auth,async user=>{
     document.getElementById('login-screen').classList.add('on');
   }
 });
-
 document.getElementById('btn-google-signin').addEventListener('click',async()=>{
   try{document.getElementById('login-err').style.display='none';await signInWithPopup(auth,provider);}
   catch(e){var el=document.getElementById('login-err');el.textContent='Sign-in failed: '+(e.code||e.message||'unknown');el.style.display='block';}
 });
 document.getElementById('btn-signout').addEventListener('click',()=>signOut(auth));
 
-var su=0.7,qu=0.7,dp='monthly',ip='monthly',qdays={};
-var COLS=['#818cf8','#34d399','#fbbf24','#f87171','#c084fc','#67e8f9','#fb923c','#a3e635','#fb7185'];
-var ICONS=['🚀','🎨','🎬','🎮','🏗','🖥','📱','🌐','🎵','🎯','💡','🔧','📊','🏆','⚡','🌟','🎪','🦁','🔮','🎭'];
-var selIcon='🚀',expDRows=[],expIRows=[];
+// COST MODEL
+function billableCount(){return (D.resources||[]).filter(r=>r.tag==='Billable').length;}
+function totalShared(){return (D.sharedCosts||[]).reduce((s,c)=>s+c.amount,0);}
+function sharedPerResource(){var n=billableCount();return n>0?totalShared()/n:0;}
+function unitCostTotal(r){return (r.unitCosts||[]).reduce((s,c)=>s+c.amount,0);}
+function loadedMonthlyCost(r){return r.salary+unitCostTotal(r)+sharedPerResource();}
+function dailyRate(r){return loadedMonthlyCost(r)/(r.availableDays||D.wd);}
+function totalStudioBurn(){return (D.resources||[]).reduce((s,r)=>s+loadedMonthlyCost(r),0);}
+function pCalc(p){
+  var cost=0,days=0;
+  (D.resources||[]).forEach(r=>{var d=(p.alloc||{})[r.id]||0;if(d>0){cost+=d*dailyRate(r);days+=d;}});
+  cost+=(p.extCost||0);
+  var rev=p.agreedPrice||0,profit=rev-cost,margin=rev>0?profit/rev:0;
+  return{cost,days,profit,margin,rev};
+}
 
 function uid(){return 'x'+Math.random().toString(36).slice(2,8)}
 function fmt(n){return '₹'+Math.round(Math.abs(n)).toLocaleString('en-IN')}
 function pct(n){return (n*100).toFixed(1)+'%'}
 function fN(n){return Math.round(n).toLocaleString('en-IN')}
-function mlc(i){return i.freq==='Capex'?i.amount/(i.life||1):i.freq==='Quarterly'?i.amount/3:i.freq==='Yearly'?i.amount/12:i.amount}
-function allCats(){return D.direct.concat(D.indirect)}
-function allItems(){return allCats().reduce((a,c)=>a.concat(c.items),[])}
-function bRes(){return D.direct.reduce((a,c)=>a.concat(c.items.filter(i=>i.tag==='Billable')),[])}
-function totDir(){return D.direct.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+mlc(i),0),0)}
-function totInd(){return D.indirect.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+mlc(i),0),0)}
-function totalBurn(){return totDir()+totInd();}
-// ── PORTFOLIO MODEL ──────────────────────────────────────────
-// Count working days (Mon-Fri) between two date strings
-function workingDaysBetween(startStr,endStr){
-  if(!startStr||!endStr)return 0;
-  var s=new Date(startStr),e=new Date(endStr);
-  if(isNaN(s)||isNaN(e)||e<s)return 0;
-  var days=0,cur=new Date(s);
-  while(cur<=e){var d=cur.getDay();if(d!==0&&d!==6)days++;cur.setDate(cur.getDate()+1);}
-  return days;
-}
-// Find earliest start and latest end across all projects that have dates
-function portfolioSpan(){
-  var starts=[],ends=[];
-  D.projects.forEach(function(p){
-    if(p.startDate)starts.push(p.startDate);
-    if(p.endDate)ends.push(p.endDate);
-    if(p.actualStart)starts.push(p.actualStart);
-    if(p.actualEnd)ends.push(p.actualEnd);
-  });
-  if(!starts.length||!ends.length)return null;
-  starts.sort();ends.sort();
-  return{start:starts[0],end:ends[ends.length-1]};
-}
-// Total working days in portfolio span
-function portfolioWorkingDays(){
-  var span=portfolioSpan();
-  if(!span)return D.wd; // fallback to 1 month
-  return workingDaysBetween(span.start,span.end)||D.wd;
-}
-// Number of months the portfolio spans
-function portfolioMonths(){
-  var span=portfolioSpan();
-  if(!span)return 1;
-  var s=new Date(span.start),e=new Date(span.end);
-  if(isNaN(s)||isNaN(e))return 1;
-  var months=(e.getFullYear()-s.getFullYear())*12+(e.getMonth()-s.getMonth())+1;
-  return Math.max(1,months);
-}
-// Total burn for the entire portfolio period
-function totalPortfolioBurn(){return totalBurn()*portfolioMonths();}
-// Total capacity = sum of each billable resource's portfolioAvailDays
-function totalCapacityDays(){
-  return bRes().reduce(function(s,r){return s+(r.portfolioAvailDays||portfolioWorkingDays());},0);
-}
-// Total assigned days across all projects
-function totalAssignedDays(){
-  return D.projects.reduce(function(s,p){return s+Object.values(p.alloc||{}).reduce(function(ss,d){return ss+(d||0);},0);},0);
-}
-// Cost per day = total portfolio burn / total portfolio capacity
-function costPerDay(){
-  var cap=totalCapacityDays();
-  return cap>0?totalPortfolioBurn()/cap:0;
-}
-function mc(v){return v>=0.2?'var(--gr)':v>=0?'var(--am)':'var(--re)'}
 function stB(m){return m>=0.2?{l:'Healthy',c:'bgs'}:m>=0?{l:'Low margin',c:'bgw'}:{l:'Loss',c:'bgd'}}
-function pCalc(p){
-  var days=Object.values(p.alloc||{}).reduce((s,d)=>s+(d||0),0);
-  var tad=totalAssignedDays();
-  // Split cost per day into direct (salaries) and indirect (overhead)
-  var directCpd=tad>0?totDir()/tad:0;
-  var indirectCpd=tad>0?totInd()/tad:0;
-  var cpd=directCpd+indirectCpd;
-  var directCost=days*directCpd;
-  var indirectCost=days*indirectCpd;
-  var extCost=(p.extCost||0)+(p.tools||0);
-  var cost=directCost+indirectCost+extCost;
-  var rev=p.agreedPrice||0,profit=rev-cost,margin=rev>0?profit/rev:0;
-  return{days,cost,profit,margin,rev,cpd,directCost,indirectCost,extCost,directCpd,indirectCpd};
-}
 
-function go(name){document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.ni').forEach(b=>b.classList.remove('act'));var scr=document.getElementById('scr-'+name);if(scr)scr.classList.add('on');var ni=document.getElementById('ni-'+name);if(ni)ni.classList.add('act');({studio:rStudio,projects:rProjects,quote:rQuote,util:rUtil,direct:rDirect,indirect:rIndirect})[name]?.();}
+var su=0.7;
+function go(name){
+  document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.ni').forEach(b=>b.classList.remove('act'));
+  var scr=document.getElementById('scr-'+name);if(scr)scr.classList.add('on');
+  var ni=document.getElementById('ni-'+name);if(ni)ni.classList.add('act');
+  ({studio:rStudio,projects:rProjects,resources:rResources,costs:rCosts,quote:rQuote,util:rUtil})[name]?.();
+}
 window.go=go;
 
-
 function rStudio(){
-  var burn=totDir()+totInd();
-  var span=portfolioSpan();
-  var months=portfolioMonths();
-  var workDays=portfolioWorkingDays();
-  var cap=totalCapacityDays();
-  var assigned=totalAssignedDays();
-  var cpd=costPerDay();
-  var util=cap>0?Math.min(assigned/cap,1):0;
-  var rev=D.projects.reduce(function(s,p){return s+(p.agreedPrice||0);},0);
-  var totalCost=D.projects.reduce(function(s,p){return s+pCalc(p).cost;},0);
-  var totalProfit=rev-totalCost;
+  var burn=totalStudioBurn(),rev=D.projects.reduce((s,p)=>s+(p.agreedPrice||0),0);
+  var totalCost=D.projects.reduce((s,p)=>s+pCalc(p).cost,0);
+  var profit=rev-totalCost,margin=rev>0?profit/rev:0;
+  var totalDays=D.projects.reduce((s,p)=>s+pCalc(p).days,0);
+  var cap=(D.resources||[]).filter(r=>r.tag==='Billable').reduce((s,r)=>s+(r.availableDays||D.wd),0);
+  var util=cap>0?Math.min(totalDays/cap,1):0;
   var el=document.getElementById('studio-name-el');if(el)el.textContent=D.studioName||'STUDIO';
-  var spanInfo=span?
-    '<div style="font-size:11px;color:var(--t3);margin-bottom:18px;padding:10px 14px;background:rgba(99,102,241,0.08);border-radius:8px;border:1px solid rgba(99,102,241,0.15);display:flex;align-items:center;gap:20px">'+
-    '<span>📅 Portfolio: <strong style="color:var(--t2)">'+span.start+' → '+span.end+'</strong></span>'+
-    '<span>💼 '+months+' month'+(months!==1?'s':'')+' · '+workDays+' working days</span>'+
-    '<span>Cost/day: <strong style="color:var(--am)">'+fmt(cpd)+'</strong></span>'+
-    '<span>Capacity: <strong style="color:var(--t2)">'+cap+' days</strong></span>'+
-    '</div>':
-    '<div style="font-size:11px;color:var(--re);margin-bottom:18px;padding:10px 14px;background:rgba(244,63,94,0.08);border-radius:8px;border:1px solid rgba(244,63,94,0.2)">⚠️ Add start &amp; end dates to projects to enable portfolio calculation.</div>';
-  document.getElementById('studio-span').innerHTML=spanInfo;
   document.getElementById('s-metrics').innerHTML=
     '<div class="mcard"><div class="mcard-lbl">Monthly Burn</div><div class="mcard-val">'+fmt(burn)+'</div></div>'+
-    '<div class="mcard"><div class="mcard-lbl">Portfolio Revenue</div><div class="mcard-val">'+fmt(rev)+'</div></div>'+
-    '<div class="mcard"><div class="mcard-lbl">Utilization</div><div class="mcard-val" style="color:'+(util>=0.7?'var(--gr)':util>=0.5?'var(--am)':'var(--re)')+'">'+pct(util)+'</div></div>'+
-    '<div class="mcard"><div class="mcard-lbl">Portfolio P&amp;L</div><div class="mcard-val" style="color:'+(totalProfit>=0?'var(--gr)':'var(--re)')+'">'+fmt(totalProfit)+'</div></div>';
-  var rows=D.projects.map(function(p,i){
+    '<div class="mcard"><div class="mcard-lbl">Total Revenue</div><div class="mcard-val">'+fmt(rev)+'</div></div>'+
+    '<div class="mcard"><div class="mcard-lbl">Utilisation</div><div class="mcard-val" style="color:'+(util>=0.7?'var(--gr)':util>=0.5?'var(--am)':'var(--re)')+'">'+pct(util)+'</div></div>'+
+    '<div class="mcard"><div class="mcard-lbl">Overall Margin</div><div class="mcard-val" style="color:'+(margin>=0.2?'var(--gr)':margin>=0?'var(--am)':'var(--re)')+'">'+pct(margin)+'</div></div>';
+  var rows=(D.projects||[]).map((p,i)=>{
     var c=pCalc(p);
     var sCls=p.projectStatus==='Active'?'st-active':p.projectStatus==='Completed'?'st-completed':p.projectStatus==='On Hold'?'st-onhold':'st-notstarted';
-    var hLabel,hCls;
-    if(!c.cost){hLabel='N/A';hCls='h-na';}
-    else if(c.margin>=0.2){hLabel='Profitable';hCls='h-profit';}
-    else if(c.margin>=0){hLabel='Low';hCls='h-low';}
-    else{hLabel='Loss';hCls='h-loss';}
+    var hLabel,hCls;if(!c.cost){hLabel='N/A';hCls='h-na';}else if(c.margin>=0.2){hLabel='Profitable';hCls='h-profit';}else if(c.margin>=0){hLabel='Low';hCls='h-low';}else{hLabel='Loss';hCls='h-loss';}
     return '<tr data-pid="'+p.id+'" style="cursor:pointer"><td class="rnum">'+(i+1)+'</td>'+
       '<td><div class="pn-wrap"><div class="proj-icon-cell">'+p.icon+'</div><span class="proj-name">'+p.name+'</span></div></td>'+
-      '<td class="dim">'+(p.clientName||'')+'</td>'+
-      '<td class="dim" style="font-size:11px">'+(p.startDate||'—')+' → '+(p.endDate||'—')+'</td>'+
-      '<td class="dim">'+(p.billingModel||'')+'</td>'+
+      '<td class="dim">'+(p.clientName||'')+'</td><td class="dim">'+(p.projectCode||'')+'</td>'+
+      '<td class="dim">'+(p.projectType||'')+'</td><td class="dim">'+(p.billingModel||'')+'</td>'+
       '<td><span class="'+sCls+'">'+(p.projectStatus||'')+'</span></td>'+
-      '<td class="num">'+fmt(c.rev)+'</td>'+
-      '<td class="num">'+fmt(c.cost)+'</td>'+
+      '<td class="num">'+fmt(c.rev)+'</td><td class="num">'+fmt(c.cost)+'</td>'+
       '<td class="num" style="color:'+(c.profit>=0?'var(--gr)':'var(--re)')+'">'+fmt(c.profit)+'</td>'+
       '<td style="text-align:right"><span style="font-size:12px;font-weight:600;color:'+(c.margin>=0.2?'var(--gr)':c.margin>=0?'var(--am)':'var(--re)')+'">'+pct(c.margin)+'</span></td>'+
       '<td><span class="'+hCls+'">'+hLabel+'</span></td></tr>';
   }).join('');
-  document.getElementById('s-ptable').innerHTML=
-    '<table class="ptbl"><thead><tr>'+
-    '<th style="width:36px">#</th><th>Project</th><th>Client</th><th>Timeline</th>'+
-    '<th>Pricing</th><th>Status</th><th class="r">Revenue</th><th class="r">Cost</th>'+
-    '<th class="r">Profit</th><th class="r">Margin</th><th>Health</th>'+
-    '</tr></thead><tbody>'+(rows||'<tr><td colspan="11" style="color:var(--t4);text-align:center;padding:30px">No projects</td></tr>')+'</tbody></table>';
-  document.querySelectorAll('#s-ptable tr[data-pid]').forEach(function(tr){
-    tr.addEventListener('click',function(){openProj(this.dataset.pid)});
-  });
+  document.getElementById('s-ptable').innerHTML='<table class="ptbl"><thead><tr><th style="width:36px">#</th><th>Project</th><th>Client</th><th>Code</th><th>Type</th><th>Pricing</th><th>Status</th><th class="r">Revenue</th><th class="r">Cost</th><th class="r">Profit</th><th class="r">Margin</th><th>Health</th></tr></thead><tbody>'+(rows||'<tr><td colspan="12" style="color:var(--t4);text-align:center;padding:30px">No projects</td></tr>')+'</tbody></table>';
+  document.querySelectorAll('#s-ptable tr[data-pid]').forEach(tr=>tr.addEventListener('click',function(){openProj(this.dataset.pid)}));
 }
 
 function rProjects(){if(window._pid)showPD();else showPL();}
 function showPL(){
-  var rows=D.projects.map(p=>{var c=pCalc(p),st=stB(c.margin);
-    return '<div class="card crow" data-pid="'+p.id+'"><div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px"><div style="display:flex;align-items:center;gap:10px"><div style="font-size:28px">'+p.icon+'</div><div><div style="font-size:15px;font-weight:700">'+p.name+'</div><div style="font-size:12px;color:var(--t3);margin-top:2px">'+p.billingModel+(p.clientName?' · '+p.clientName:'')+'</div></div></div><div style="text-align:right"><span class="bdg '+st.c+'">'+st.l+'</span><div style="font-size:15px;font-weight:700;margin-top:4px">'+fmt(c.rev)+'</div></div></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><div class="mc" style="padding:9px 11px"><div class="mcl">Cost</div><div style="font-size:14px;font-weight:700">'+fmt(c.cost)+'</div></div><div class="mc" style="padding:9px 11px"><div class="mcl">Profit</div><div style="font-size:14px;font-weight:700;color:'+(c.profit>=0?'var(--gr)':'var(--re)')+'">'+fmt(c.profit)+'</div></div><div class="mc" style="padding:9px 11px"><div class="mcl">Margin</div><div style="font-size:14px;font-weight:700">'+(c.cost>0?pct(c.margin):'—')+'</div></div></div></div>';
+  var rows=(D.projects||[]).map(p=>{var c=pCalc(p),st=stB(c.margin);
+    return '<div class="card crow" data-pid="'+p.id+'">'+
+      '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">'+
+      '<div style="display:flex;align-items:center;gap:10px"><div style="font-size:28px">'+p.icon+'</div>'+
+      '<div><div style="font-size:15px;font-weight:700">'+p.name+'</div>'+
+      '<div style="font-size:12px;color:var(--t3);margin-top:2px">'+p.billingModel+(p.clientName?' · '+p.clientName:'')+'</div></div></div>'+
+      '<div style="text-align:right"><span class="bdg '+st.c+'">'+st.l+'</span>'+
+      '<div style="font-size:15px;font-weight:700;margin-top:4px">'+fmt(c.rev)+'</div></div></div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'+
+      '<div class="mc" style="padding:9px 11px"><div class="mcl">Cost</div><div style="font-size:14px;font-weight:700">'+fmt(c.cost)+'</div></div>'+
+      '<div class="mc" style="padding:9px 11px"><div class="mcl">Profit</div><div style="font-size:14px;font-weight:700;color:'+(c.profit>=0?'var(--gr)':'var(--re)')+'">'+fmt(c.profit)+'</div></div>'+
+      '<div class="mc" style="padding:9px 11px"><div class="mcl">Margin</div><div style="font-size:14px;font-weight:700">'+(c.cost>0?pct(c.margin):'—')+'</div></div>'+
+      '</div></div>';
   }).join('')||'<div style="color:var(--t4);text-align:center;padding:50px">No projects yet.</div>';
-  document.getElementById('pl-body').innerHTML=rows;document.getElementById('pl-view').style.display='';document.getElementById('pd-view').style.display='none';
+  document.getElementById('pl-body').innerHTML=rows;
+  document.getElementById('pl-view').style.display='';document.getElementById('pd-view').style.display='none';
   document.querySelectorAll('#pl-body .crow').forEach(el=>el.addEventListener('click',function(){openProj(this.dataset.pid)}));
 }
 function showPD(){document.getElementById('pl-view').style.display='none';document.getElementById('pd-view').style.display='';rProjDetail();}
@@ -518,276 +435,310 @@ function openProj(id){window._pid=id;document.querySelectorAll('.ni').forEach(b=
 
 function rProjDetail(){
   var p=D.projects.find(x=>x.id===window._pid);if(!p)return;
-  var c=pCalc(p),cpd=costPerDay(),res=bRes();
-  var dRows=res.filter(r=>(p.alloc[r.id]||0)>0),maxD=Math.max(...dRows.map(r=>p.alloc[r.id]||0),1);
-  var cpd=costPerDay(),dTotal=dRows.reduce((s,r)=>s+(p.alloc[r.id]||0)*cpd,0);
-  var iExp=(p.expenses||[]).filter(e=>e.type==='indirect'),iTotal=iExp.reduce((s,e)=>s+(e.useCustom?e.customAmount:e.amount),0),maxI=Math.max(...iExp.map(e=>e.useCustom?e.customAmount:e.amount),1);
+  var c=pCalc(p);
+  var bres=(D.resources||[]).filter(r=>(p.alloc||{})[r.id]>0);
+  var maxD=Math.max(...bres.map(r=>(p.alloc||{})[r.id]||0),1);
+  var resRows=bres.map(r=>{
+    var d=(p.alloc||{})[r.id]||0,rate=dailyRate(r),cost=d*rate;
+    var barW=Math.max((d/maxD)*100,0).toFixed(1);
+    return '<tr>'+
+      '<td><div style="display:flex;align-items:center;gap:8px"><div class="av">'+r.name.slice(0,2).toUpperCase()+'</div>'+
+      '<div><div style="font-weight:600;color:#a5b4fc">'+r.name+'</div>'+
+      '<div style="font-size:11px;color:var(--t3)">'+r.note+' · '+fmt(rate)+'/day</div></div></div></td>'+
+      '<td style="width:45%;padding:10px 14px"><div class="util-bar-wrap"><div class="util-track"><div class="util-fill blue" style="width:'+barW+'%">'+d+' days</div></div></div></td>'+
+      '<td style="text-align:right;font-size:13px;font-weight:600;color:#a5b4fc;padding:10px 14px">'+fmt(cost)+'</td></tr>';
+  }).join('')||'<tr><td colspan="3" class="empty-row">No resources assigned — click Manage Allocation</td></tr>';
 
   document.getElementById('pd-body').innerHTML=
-    '<div class="pd-header"><div><button class="backbtn" id="btn-backproj" style="margin-bottom:6px">← Projects</button><div class="pd-title">'+(p.clientName?p.clientName+' — ':'')+p.name+'</div></div><div style="display:flex;gap:10px;align-items:center"><button class="btn btns" id="btn-editproj" style="font-size:11px">Edit info</button><button class="add-exp-btn" id="btn-add-expense">Add Expense</button></div></div>'+
+    '<div class="pd-header">'+
+    '<div><button class="backbtn" id="btn-backproj" style="margin-bottom:6px">← Projects</button>'+
+    '<div class="pd-title">'+(p.clientName?p.clientName+' — ':'')+p.name+'</div></div>'+
+    '<div style="display:flex;gap:10px;align-items:center">'+
+    '<button class="btn btns" id="btn-editproj">Edit info</button>'+
+    '<button class="add-exp-btn" id="btn-alloc">Manage Allocation</button></div></div>'+
     '<div class="pd-metrics">'+
     '<div class="pdm"><div class="pdm-lbl">Agreed Price</div><div class="pdm-val">'+fmt(c.rev)+'</div></div>'+
     '<div class="pdm"><div class="pdm-lbl">Total Cost</div><div class="pdm-val">'+fmt(c.cost)+'</div></div>'+
-    '<div class="pdm"><div class="pdm-lbl">Days Assigned</div><div class="pdm-val">'+c.days+'d @ '+fmt(c.cpd)+'/d</div></div>'+
     '<div class="pdm"><div class="pdm-lbl">Profit / Loss</div><div class="pdm-val" style="color:'+(c.profit>=0?'var(--gr)':'var(--re)')+'">'+fmt(c.profit)+'</div></div>'+
-    '<div class="pdm" style="border-right:none"><div class="pdm-lbl">Margin</div><div class="pdm-val" style="color:'+(c.margin>=0.2?'var(--gr)':c.margin>=0?'var(--am)':'var(--re)')+'">'+pct(c.margin)+'</div></div></div>'+
-    '<div class="pd-panels">'+
-    '<div class="panel"><div class="panel-hdr blue"><span class="panel-hdr-left">Direct Heads</span><span class="panel-hdr-amt">'+fmt(c.directCost)+'</span></div><div class="panel-body"><table class="panel-table" style="width:100%"><thead><tr><th>Name</th><th>Utilisation</th><th class="r">Cost</th></tr></thead><tbody>'+
-    (dRows.length?dRows.map(r=>{var d=p.alloc[r.id]||0,cost=d*c.directCpd,bW=Math.max((d/maxD)*100,0).toFixed(1);return'<tr><td><span class="res-name" style="color:#a5b4fc">'+r.name+'</span></td><td style="width:55%;padding-right:16px"><div class="util-bar-wrap"><div class="util-track"><div class="util-fill blue" style="width:'+bW+'%">'+d+'</div></div></div></td><td class="cost-cell" style="color:#a5b4fc">'+fmt(cost)+'</td></tr>';}).join(''):'<tr><td colspan="3" class="empty-row">No resources — click Add Expense</td></tr>')+
-    '</tbody></table></div></div>'+
-    '<div class="panel"><div class="panel-hdr green"><span class="panel-hdr-left">Indirect Heads</span><span class="panel-hdr-amt">'+fmt(c.indirectCost)+'</span></div><div class="panel-body"><table class="panel-table" style="width:100%"><thead><tr><th>Indirect Heads</th><th>Utilisation</th><th class="r">Cost</th></tr></thead><tbody>'+
-    (iExp.length?iExp.map(e=>{var amt=e.useCustom?e.customAmount:e.amount,bP=Math.max((amt/maxI)*100,0).toFixed(1);return'<tr><td><span class="res-name" style="color:#6ee7b7">'+e.name+(e.note?' <span style="color:var(--t4);font-size:11px">'+e.note+'</span>':'')+'</span></td><td style="width:55%;padding-right:16px"><div class="util-bar-wrap"><div class="util-track"><div class="util-fill green" style="width:'+bP+'%">'+bP+'%</div></div></div></td><td class="cost-cell" style="color:#6ee7b7">'+fmt(amt)+'</td></tr>';}).join(''):'<tr><td colspan="3" class="empty-row">No indirect — click Add Expense</td></tr>')+
-    '</tbody></table></div></div></div>';
+    '<div class="pdm"><div class="pdm-lbl">Margin</div><div class="pdm-val" style="color:'+(c.margin>=0.2?'var(--gr)':c.margin>=0?'var(--am)':'var(--re)')+'">'+pct(c.margin)+'</div></div>'+
+    '<div class="pdm" style="border-right:none"><div class="pdm-lbl">Days Assigned</div><div class="pdm-val">'+c.days+'d</div></div></div>'+
+    '<div class="card"><div class="ct">Resource cost breakdown — loaded daily rates (salary + unit tools + shared costs)</div>'+
+    '<table class="panel-table" style="width:100%"><thead><tr><th>Resource</th><th>Allocation</th><th class="r">Cost</th></tr></thead>'+
+    '<tbody>'+resRows+'</tbody>'+
+    (p.extCost?'<tfoot><tr><td colspan="2" style="padding:10px 14px;font-size:13px;color:var(--t3)">External / Subcontract</td><td style="text-align:right;padding:10px 14px;font-size:13px;font-weight:600;color:var(--t1)">'+fmt(p.extCost)+'</td></tr></tfoot>':'')+
+    '</table></div>';
+
   document.getElementById('btn-backproj').addEventListener('click',()=>{window._pid=null;showPL()});
   document.getElementById('btn-editproj').addEventListener('click',()=>{var pr=D.projects.find(x=>x.id===window._pid);if(pr)openProjForm(pr)});
-  document.getElementById('btn-add-expense').addEventListener('click',()=>openExpModal());
+  document.getElementById('btn-alloc').addEventListener('click',()=>openAllocModal());
 }
 
-function openExpModal(){
+function openAllocModal(){
   var p=D.projects.find(x=>x.id===window._pid);if(!p)return;
-  var res=bRes();
-  expDRows=res.filter(r=>(p.alloc[r.id]||0)>0).map(r=>({rid:r.id,func:'',days:p.alloc[r.id]||0}));
-  if(!expDRows.length&&res.length)expDRows=[{rid:res[0].id,func:'',days:0}];
-  var ii=D.indirect.reduce((a,c)=>a.concat(c.items.map(i=>Object.assign({},i,{catId:c.id,catName:c.name}))),[]);
-  expIRows=(p.expenses||[]).filter(e=>e.type==='indirect').map(e=>({iid:e.sourceId,alloc:100,count:1,expId:e.id}));
-  if(!expIRows.length&&ii.length)expIRows=[{iid:ii[0].id,alloc:'',count:'',expId:null}];
-  expSwitchTab('direct');renderExpDirectRows();renderExpIndirectRows();
-  document.getElementById('exp-modal').classList.add('open');
-}
-function closeExpModal(){document.getElementById('exp-modal').classList.remove('open')}
-window.closeExpModal=closeExpModal;
-function expSwitchTab(tab){
-  document.getElementById('exp-tab-direct').className='exp-tab '+(tab==='direct'?'active-direct':'inactive');
-  document.getElementById('exp-tab-indirect').className='exp-tab '+(tab==='indirect'?'active-indirect':'inactive');
-  document.getElementById('exp-pane-direct').className='exp-pane'+(tab==='direct'?' on':'');
-  document.getElementById('exp-pane-indirect').className='exp-pane'+(tab==='indirect'?' on':'');
-}
-window.expSwitchTab=expSwitchTab;
-function buildExpDirectRows(){
-  var p=D.projects.find(x=>x.id===window._pid);if(!p)return;
-  var res=bRes(),cpd=costPerDay();
-  document.getElementById('exp-direct-rows').innerHTML=expDRows.map((row,idx)=>{
-    var r=res.find(x=>x.id===row.rid),cost=r&&row.days?cpd*parseFloat(row.days||0):0;
-    var opts=res.map(rx=>'<option value="'+rx.id+'"'+(rx.id===row.rid?' selected':'')+'>'+(rx.name+(rx.note?' - '+rx.note:''))+'</option>').join('');
-    return '<div class="exp-row-item dg" data-idx="'+idx+'"><div class="sel-wrap"><select onchange="expDChange('+idx+',\'rid\',this.value)">'+opts+'</select></div><input class="ef-inp" type="text" placeholder="Function" value="'+(row.func||'')+'" data-field="func" data-idx="'+idx+'"><input class="ef-inp ed-days" type="number" min="0" placeholder="0" value="'+(row.days||'')+'" data-field="days" data-idx="'+idx+'" style="text-align:center"><div class="ef-cost blue" id="ed-cost-'+idx+'">'+fmt(cost)+'</div><button class="ef-del" onclick="expDDel('+idx+')">✕</button></div>';
-  }).join('')||'<div style="color:var(--t4);font-size:13px;padding:8px 0">No resources added.</div>';
-  updateExpDirectTotal();
-  // Attach input listeners without re-rendering
-  document.querySelectorAll('#exp-direct-rows input[data-field]').forEach(inp=>{
-    inp.addEventListener('input',function(){
-      var idx=parseInt(this.dataset.idx),field=this.dataset.field;
-      expDRows[idx][field]=this.value;
-      updateExpDirectTotal();
+  var rows=(D.resources||[]).map(r=>{
+    var d=(p.alloc||{})[r.id]||0,rate=dailyRate(r);
+    return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'+
+      '<div class="av">'+r.name.slice(0,2).toUpperCase()+'</div>'+
+      '<div style="flex:1"><div style="font-size:13px;font-weight:600">'+r.name+'</div>'+
+      '<div style="font-size:11px;color:var(--t3)">'+r.note+' · '+fmt(rate)+'/day loaded</div></div>'+
+      '<input type="number" min="0" class="inp" id="alloc-'+r.id+'" value="'+d+'" style="width:80px;text-align:center" placeholder="0">'+
+      '<div style="font-size:12px;color:#a5b4fc;min-width:90px;text-align:right" id="alloc-cost-'+r.id+'">'+fmt(d*rate)+'</div></div>';
+  }).join('');
+  openMod('Manage Resource Allocation',
+    '<div style="margin-bottom:14px;font-size:13px;color:var(--t3)">Enter days each resource works on this project. Cost is their fully loaded daily rate (salary + tools + shared costs).</div>'+
+    rows+'<div class="hr"></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:center">'+
+    '<span style="font-size:12px;color:var(--t3)">External / subcontract (₹)</span>'+
+    '<input type="number" min="0" class="inp" id="alloc-ext" value="'+(p.extCost||0)+'" style="width:120px;text-align:right"></div>',
+    ()=>{
+      if(!p.alloc)p.alloc={};
+      (D.resources||[]).forEach(r=>{p.alloc[r.id]=parseFloat((document.getElementById('alloc-'+r.id)||{}).value)||0;});
+      p.extCost=parseFloat((document.getElementById('alloc-ext')||{}).value)||0;
+      saveD();closeMod();rProjDetail();
+    }
+  );
+  setTimeout(()=>{
+    (D.resources||[]).forEach(r=>{
+      var inp=document.getElementById('alloc-'+r.id),costEl=document.getElementById('alloc-cost-'+r.id);
+      if(inp&&costEl)inp.addEventListener('input',function(){costEl.textContent=fmt(parseFloat(this.value||0)*dailyRate(r));});
     });
-  });
+  },100);
 }
-function updateExpDirectTotal(){
-  var p=D.projects.find(x=>x.id===window._pid);if(!p)return;
-  var res=bRes(),cpd=costPerDay();
-  var total=expDRows.reduce((s,row,idx)=>{
-    var r=res.find(x=>x.id===row.rid),cost=r&&row.days?cpd*parseFloat(row.days||0):0;
-    var costEl=document.getElementById('ed-cost-'+idx);if(costEl)costEl.textContent=fmt(cost);
-    return s+cost;
-  },0);
-  var el=document.getElementById('exp-direct-total');if(el)el.textContent=fmt(total);
-}
-function renderExpDirectRows(){buildExpDirectRows();}
-function buildExpIndirectRows(){
-  var ii=D.indirect.reduce((a,c)=>a.concat(c.items.map(i=>Object.assign({},i,{catId:c.id,catName:c.name}))),[]);
-  var cats=D.indirect.map(c=>({id:c.id,name:c.name}));
-  document.getElementById('exp-indirect-rows').innerHTML=expIRows.map((row,idx)=>{
-    var item=ii.find(x=>x.id===row.iid),cost=item?mlc(item)*(parseFloat(row.alloc)||0)/100*(parseFloat(row.count)||1):0;
-    var iOpts=ii.map(it=>'<option value="'+it.id+'"'+(it.id===row.iid?' selected':'')+'>'+it.name+'</option>').join('');
-    var cOpts=cats.map(ct=>'<option value="'+ct.id+'"'+(item&&item.catId===ct.id?' selected':'')+'>'+ct.name+'</option>').join('');
-    return '<div class="exp-row-item ig" data-idx="'+idx+'"><div class="sel-wrap"><select onchange="expIChange('+idx+',\'iid\',this.value)">'+iOpts+'</select></div><div class="sel-wrap"><select onchange="expIChange('+idx+',\'cat\',this.value)">'+cOpts+'</select></div><div style="display:flex;align-items:center;gap:4px"><input class="ef-inp" type="number" min="0" max="100" placeholder="100" value="'+(row.alloc||'')+'" data-field="alloc" data-idx="'+idx+'" style="text-align:center"><span style="color:var(--t4);font-size:12px">%</span></div><input class="ef-inp" type="number" min="1" placeholder="1" value="'+(row.count||'')+'" data-field="count" data-idx="'+idx+'" style="text-align:center"><div class="ef-cost green" id="ei-cost-'+idx+'">'+fmt(cost)+'</div><button class="ef-del" onclick="expIDel('+idx+')">✕</button></div>';
-  }).join('')||'<div style="color:var(--t4);font-size:13px;padding:8px 0">No indirect expenses.</div>';
-  updateExpIndirectTotal();
-  document.querySelectorAll('#exp-indirect-rows input[data-field]').forEach(inp=>{
-    inp.addEventListener('input',function(){
-      var idx=parseInt(this.dataset.idx),field=this.dataset.field;
-      expIRows[idx][field]=this.value;
-      updateExpIndirectTotal();
-    });
-  });
-}
-function updateExpIndirectTotal(){
-  var ii=D.indirect.reduce((a,c)=>a.concat(c.items.map(i=>Object.assign({},i,{catId:c.id,catName:c.name}))),[]);
-  var total=expIRows.reduce((s,row,idx)=>{
-    var item=ii.find(x=>x.id===row.iid),cost=item?mlc(item)*(parseFloat(row.alloc)||0)/100*(parseFloat(row.count)||1):0;
-    var costEl=document.getElementById('ei-cost-'+idx);if(costEl)costEl.textContent=fmt(cost);
-    return s+cost;
-  },0);
-  var el=document.getElementById('exp-indirect-total');if(el)el.textContent=fmt(total);
-}
-function renderExpIndirectRows(){buildExpIndirectRows();}
-window.expDChange=(idx,f,v)=>{expDRows[idx][f]=v;
-  // For select (rid) we rebuild to update displayed costs; inputs handled by listeners
-  if(f==='rid')buildExpDirectRows(); else updateExpDirectTotal();
-};
-window.expIChange=(idx,f,v)=>{expIRows[idx][f]=v;
-  if(f==='iid'||f==='cat')buildExpIndirectRows(); else updateExpIndirectTotal();
-};
-window.expDDel=(idx)=>{if(expDRows.length>1)expDRows.splice(idx,1);buildExpDirectRows();};
-window.expIDel=(idx)=>{if(expIRows.length>1)expIRows.splice(idx,1);buildExpIndirectRows();};
-window.expAddDirectRow=()=>{var res=bRes();expDRows.push({rid:res[0]?res[0].id:'',func:'',days:''});buildExpDirectRows();};
-window.expAddIndirectRow=()=>{var ii=D.indirect.reduce((a,c)=>a.concat(c.items),[]);expIRows.push({iid:ii[0]?ii[0].id:'',alloc:'',count:'',expId:null});buildExpIndirectRows();};
-window.saveDirectExp=()=>{
-  var p=D.projects.find(x=>x.id===window._pid);if(!p)return;
-  var res=bRes();res.forEach(r=>p.alloc[r.id]=0);
-  expDRows.forEach(row=>{if(!row.rid||!parseFloat(row.days))return;p.alloc[row.rid]=(p.alloc[row.rid]||0)+parseFloat(row.days)});
-  saveD();closeExpModal();rProjDetail();
-};
-window.saveIndirectExp=()=>{
-  // Sync any unsynced input values from DOM
-  document.querySelectorAll('#exp-indirect-rows input[data-field]').forEach(inp=>{
-    var idx=parseInt(inp.dataset.idx),field=inp.dataset.field;
-    if(expIRows[idx])expIRows[idx][field]=inp.value;
-  });
-  var p=D.projects.find(x=>x.id===window._pid);if(!p)return;
-  var ii=D.indirect.reduce((a,c)=>a.concat(c.items.map(i=>Object.assign({},i,{catName:c.name}))),[]);
-  p.expenses=(p.expenses||[]).filter(e=>e.type!=='indirect');
-  expIRows.forEach(row=>{var item=ii.find(x=>x.id===row.iid);if(!item)return;var alloc=parseFloat(row.alloc)||100,count=parseFloat(row.count)||1,amt=mlc(item)*(alloc/100)*count;p.expenses.push({id:row.expId||uid(),type:'indirect',sourceId:item.id,name:item.name,note:item.catName||'',amount:amt,freq:item.freq,useCustom:false,customAmount:amt})});
-  saveD();closeExpModal();rProjDetail();
-};
+
+var selIcon='🚀';
+var ICONS=['🚀','🎨','🎬','🎮','🏗','🖥','📱','🌐','🎵','🎯','💡','🔧','📊','🏆','⚡','🌟','🎪','🦁','🔮','🎭'];
 
 function openProjForm(existing){
   selIcon=existing?existing.icon:'🚀';
   var iconGrid=ICONS.map(ic=>'<div class="icon-opt'+(ic===selIcon?' sel':'')+'" data-ic="'+ic+'" onclick="pickIcon(this)">'+ic+'</div>').join('');
-  var resInputs=bRes().map(r=>'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div class="av" style="width:26px;height:26px;font-size:10px">'+r.name.slice(0,2).toUpperCase()+'</div><span style="font-size:13px;flex:1;color:var(--t1)">'+r.name+' <span style="color:var(--t3);font-size:12px">'+r.note+'</span></span><input type="number" class="inp" id="np-'+r.id+'" value="'+(existing?existing.alloc[r.id]||0:0)+'" min="0" style="width:80px;text-align:center" placeholder="days"></div>').join('');
   document.getElementById('m-title').textContent=existing?'Edit project':'New project';
   document.getElementById('m-sub').style.display='none';
   document.getElementById('m-body').innerHTML=
-    '<div class="fsec-title">Project information</div>'+
-    '<div style="margin-bottom:12px"><label style="font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Icon</label><div style="display:flex;align-items:flex-start;gap:12px"><div class="icon-preview" id="icon-prev" onclick="toggleIconGrid()">'+selIcon+'</div><div style="flex:1"><div style="font-size:12px;color:var(--t3);margin-bottom:6px">Click to change</div><div class="icon-grid" id="icon-grid">'+iconGrid+'</div></div></div></div>'+
-    '<div class="fgrid-2"><div class="fgroup"><label>Project name</label><input class="inp" id="np-name" value="'+(existing?existing.name:'')+'" placeholder="Website Redesign"></div><div class="fgroup"><label>Project manager</label><input class="inp" id="np-mgr" value="'+(existing?existing.manager:'')+'" placeholder="Priya Shah"></div></div>'+
-    '<div class="fgrid-2" style="margin-top:10px"><div class="fgroup"><label>Project code</label><input class="inp" id="np-code" value="'+(existing?existing.projectCode||'':'')+'" placeholder="WYG-TOW"></div><div class="fgroup"><label>Project type</label><input class="inp" id="np-type" value="'+(existing?existing.projectType||'':'')+'" placeholder="UI/UX, Animation"></div></div>'+
-    '<div class="fgrid-2" style="margin-top:10px"><div class="fgroup"><label>Billing model</label><select class="inp" id="np-billing">'+['Fixed Price','Time & Material','Retainer','Milestone-based','Asset Based'].map(m=>'<option'+(existing&&existing.billingModel===m?' selected':'')+'>'+m+'</option>').join('')+'</select></div><div class="fgroup"><label>Status</label><select class="inp" id="np-status">'+['Active','Completed','Not Started','On Hold'].map(s=>'<option'+(existing&&existing.projectStatus===s?' selected':'')+'>'+s+'</option>').join('')+'</select></div></div>'+
-    '<div class="fgrid-2" style="margin-top:10px"><div class="fgroup"><label>Agreed price (₹)</label><input class="inp" id="np-price" type="number" value="'+(existing?existing.agreedPrice:'')+'" placeholder="2500000"></div><div class="fgroup"><label>Planned cost (₹)</label><input class="inp" id="np-planned" type="number" value="'+(existing?existing.plannedCost:'')+'" placeholder="1500000"></div></div>'+
+    '<div style="margin-bottom:12px"><label style="font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Icon</label>'+
+    '<div style="display:flex;gap:12px"><div class="icon-preview" id="icon-prev" onclick="toggleIconGrid()">'+selIcon+'</div>'+
+    '<div style="flex:1"><div style="font-size:12px;color:var(--t3);margin-bottom:6px">Click to change</div><div class="icon-grid" id="icon-grid">'+iconGrid+'</div></div></div></div>'+
+    '<div class="fgrid-2"><div class="fgroup"><label>Project name</label><input class="inp" id="np-name" value="'+(existing?existing.name:'')+'" placeholder="NBA Court Rush"></div>'+
+    '<div class="fgroup"><label>Project manager</label><input class="inp" id="np-mgr" value="'+(existing?existing.manager||'':'')+'" placeholder="Lokesh Suri"></div></div>'+
+    '<div class="fgrid-2" style="margin-top:10px"><div class="fgroup"><label>Project code</label><input class="inp" id="np-code" value="'+(existing?existing.projectCode||'':'')+'" placeholder="WYG-TOW"></div>'+
+    '<div class="fgroup"><label>Project type</label><input class="inp" id="np-type" value="'+(existing?existing.projectType||'':'')+'" placeholder="UI/UX, 3D, Animation"></div></div>'+
+    '<div class="fgrid-2" style="margin-top:10px"><div class="fgroup"><label>Billing model</label><select class="inp" id="np-billing">'+['Fixed Price','Time & Material','Retainer','Milestone-based','Asset Based'].map(m=>'<option'+(existing&&existing.billingModel===m?' selected':'')+'>'+m+'</option>').join('')+'</select></div>'+
+    '<div class="fgroup"><label>Status</label><select class="inp" id="np-status">'+['Active','Completed','Not Started','On Hold'].map(s=>'<option'+(existing&&existing.projectStatus===s?' selected':'')+'>'+s+'</option>').join('')+'</select></div></div>'+
+    '<div class="fgrid-2" style="margin-top:10px"><div class="fgroup"><label>Agreed price (₹)</label><input class="inp" id="np-price" type="number" value="'+(existing?existing.agreedPrice||'':'')+'" placeholder="500000"></div>'+
+    '<div class="fgroup"><label>External cost (₹)</label><input class="inp" id="np-ext" type="number" value="'+(existing?existing.extCost||0:0)+'" placeholder="0"></div></div>'+
     '<div class="fsec-title">Client information</div>'+
-    '<div class="fgrid-2"><div class="fgroup"><label>Client name</label><input class="inp" id="np-cname" value="'+(existing?existing.clientName:'')+'" placeholder="Acme Corp"></div><div class="fgroup"><label>Contact name</label><input class="inp" id="np-ccontact" value="'+(existing?existing.clientContact:'')+'" placeholder="Raj Mehta"></div></div>'+
-    '<div class="fgrid-2" style="margin-top:10px"><div class="fgroup"><label>Contact email</label><input class="inp" id="np-cemail" value="'+(existing?existing.clientEmail:'')+'" placeholder="raj@acme.com"></div><div class="fgroup"><label>Contact phone</label><input class="inp" id="np-cphone" value="'+(existing?existing.clientPhone:'')+'" placeholder="+91 98765 43210"></div></div>'+
-    '<div class="fsec-title">Project dates</div>'+
-    '<div class="fgrid-2"><div class="fgroup"><label>Projected start</label><input class="inp" id="np-start" type="date" value="'+(existing?existing.startDate:'')+'" style="color-scheme:dark"></div><div class="fgroup"><label>Projected end</label><input class="inp" id="np-end" type="date" value="'+(existing?existing.endDate:'')+'" style="color-scheme:dark"></div></div>'+
-    '<div class="fsec-title">Resource day allocation</div>'+resInputs;
+    '<div class="fgrid-2"><div class="fgroup"><label>Client name</label><input class="inp" id="np-cname" value="'+(existing?existing.clientName||'':'')+'" placeholder="Acme Corp"></div>'+
+    '<div class="fgroup"><label>Contact name</label><input class="inp" id="np-ccontact" value="'+(existing?existing.clientContact||'':'')+'" placeholder="Raj Mehta"></div></div>'+
+    '<div class="fgrid-2" style="margin-top:10px"><div class="fgroup"><label>Contact email</label><input class="inp" id="np-cemail" value="'+(existing?existing.clientEmail||'':'')+'" placeholder="raj@acme.com"></div>'+
+    '<div class="fgroup"><label>Contact phone</label><input class="inp" id="np-cphone" value="'+(existing?existing.clientPhone||'':'')+'" placeholder="+91 98765 43210"></div></div>'+
+    '<div class="fgrid-2" style="margin-top:10px"><div class="fgroup"><label>Start date</label><input class="inp" id="np-start" type="date" value="'+(existing?existing.startDate||'':'')+'" style="color-scheme:dark"></div>'+
+    '<div class="fgroup"><label>End date</label><input class="inp" id="np-end" type="date" value="'+(existing?existing.endDate||'':'')+'" style="color-scheme:dark"></div></div>';
   document.getElementById('m-ok').onclick=()=>{
-    var alloc={};bRes().forEach(r=>{alloc[r.id]=parseFloat((document.getElementById('np-'+r.id)||{}).value)||0});
-    var selU=document.querySelector('#np-util-seg .sb.on'),util=selU?parseFloat(selU.dataset.u):0.7;
-    var data={id:existing?existing.id:uid(),icon:selIcon,name:document.getElementById('np-name').value||'Untitled',manager:document.getElementById('np-mgr').value||'',projectCode:document.getElementById('np-code').value||'',projectType:document.getElementById('np-type').value||'',projectStatus:document.getElementById('np-status').value||'Active',billingModel:document.getElementById('np-billing').value,agreedPrice:parseFloat(document.getElementById('np-price').value)||0,plannedCost:parseFloat(document.getElementById('np-planned').value)||0,clientName:document.getElementById('np-cname').value||'',clientContact:document.getElementById('np-ccontact').value||'',clientEmail:document.getElementById('np-cemail').value||'',clientPhone:document.getElementById('np-cphone').value||'',wadSow:'',wadSigned:'',ndaSigned:'',startDate:document.getElementById('np-start').value||'',endDate:document.getElementById('np-end').value||'',actualStart:'',actualEnd:'',extCost:existing?existing.extCost:0,tools:existing?existing.tools:0,util,alloc,expenses:existing?existing.expenses:[]};
-    if(existing){var idx=D.projects.findIndex(x=>x.id===existing.id);if(idx>=0)D.projects[idx]=data;}else D.projects.push(data);
-    saveD();closeMod();if(existing){window._pid=data.id;rProjDetail();}else{window._pid=data.id;showPD();}
+    var data={id:existing?existing.id:uid(),icon:selIcon,
+      name:document.getElementById('np-name').value||'Untitled',
+      manager:document.getElementById('np-mgr').value||'',
+      projectCode:document.getElementById('np-code').value||'',
+      projectType:document.getElementById('np-type').value||'',
+      projectStatus:document.getElementById('np-status').value||'Active',
+      billingModel:document.getElementById('np-billing').value,
+      agreedPrice:parseFloat(document.getElementById('np-price').value)||0,
+      extCost:parseFloat(document.getElementById('np-ext').value)||0,
+      clientName:document.getElementById('np-cname').value||'',
+      clientContact:document.getElementById('np-ccontact').value||'',
+      clientEmail:document.getElementById('np-cemail').value||'',
+      clientPhone:document.getElementById('np-cphone').value||'',
+      startDate:document.getElementById('np-start').value||'',
+      endDate:document.getElementById('np-end').value||'',
+      alloc:existing?existing.alloc:{}};
+    if(existing){var idx=D.projects.findIndex(x=>x.id===existing.id);if(idx>=0)D.projects[idx]=data;}
+    else D.projects.push(data);
+    saveD();closeMod();window._pid=data.id;showPD();
   };
   document.getElementById('modal').classList.add('open');
 }
 window.pickIcon=(el)=>{selIcon=el.dataset.ic;document.querySelectorAll('.icon-opt').forEach(d=>d.classList.remove('sel'));el.classList.add('sel');var p=document.getElementById('icon-prev');if(p)p.textContent=selIcon};
 window.toggleIconGrid=()=>{var g=document.getElementById('icon-grid');if(g)g.classList.toggle('open')};
-window.pickNPUtil=(el)=>{document.querySelectorAll('#np-util-seg .sb').forEach(b=>b.classList.remove('on'));el.classList.add('on')};
 
-function setQU(u,el){qu=u;document.querySelectorAll('#qu-seg .sb').forEach(b=>b.classList.remove('on'));el.classList.add('on');calcQ()}window.setQU=setQU;
-function rQuote(){document.getElementById('q-resrows').innerHTML=bRes().map(r=>'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div class="av" style="width:26px;height:26px;font-size:10px">'+r.name.slice(0,2).toUpperCase()+'</div><span style="font-size:13px;flex:1">'+r.name+' <span style="color:var(--t3)">'+r.note+'</span></span><input class="inp" type="number" min="0" value="'+(qdays[r.id]||0)+'" style="width:80px;text-align:center" data-rid="'+r.id+'" onchange="setQD(this)" placeholder="days"></div>').join('');calcQ();}
-window.setQD=(el)=>{qdays[el.dataset.rid]=parseFloat(el.value)||0;calcQ()};
+function rResources(){
+  var sharedTotal=totalShared(),n=billableCount(),perRes=n>0?sharedTotal/n:0;
+  document.getElementById('res-body').innerHTML=
+    '<div class="g4" style="margin-bottom:20px">'+
+    '<div class="mc"><div class="mcl">Total resources</div><div class="mcv">'+( D.resources||[]).length+'</div></div>'+
+    '<div class="mc"><div class="mcl">Shared cost / resource</div><div class="mcv" style="color:#818cf8">'+fmt(perRes)+'</div></div>'+
+    '<div class="mc"><div class="mcl">Monthly studio burn</div><div class="mcv">'+fmt(totalStudioBurn())+'</div></div>'+
+    '<div class="mc"><div class="mcl">Avg daily rate</div><div class="mcv">'+fmt((D.resources||[]).reduce((s,r)=>s+dailyRate(r),0)/Math.max((D.resources||[]).length,1))+'</div></div>'+
+    '</div>'+
+    (D.resources||[]).map(r=>{
+      var loaded=loadedMonthlyCost(r),rate=dailyRate(r),unitTotal=unitCostTotal(r);
+      var unitRows=(r.unitCosts||[]).map(u=>'<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bd);font-size:12px"><span style="color:var(--t2)">'+u.name+'</span><span>'+fmt(u.amount)+'/mo</span></div>').join('');
+      return '<div class="card" style="margin-bottom:12px">'+
+        '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">'+
+        '<div style="display:flex;align-items:center;gap:10px"><div class="av" style="width:40px;height:40px;font-size:14px">'+r.name.slice(0,2).toUpperCase()+'</div>'+
+        '<div><div style="font-size:15px;font-weight:700">'+r.name+'</div><div style="font-size:12px;color:var(--t3)">'+r.note+'</div></div></div>'+
+        '<div style="display:flex;gap:8px"><button class="btn btns" onclick="openEditResource(''+r.id+'')">Edit</button>'+
+        '<button class="btn btns btnd" onclick="delResource(''+r.id+'')">Delete</button></div></div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px">'+
+        '<div class="mc" style="padding:9px 11px"><div class="mcl">Salary</div><div style="font-size:14px;font-weight:700">'+fmt(r.salary)+'</div></div>'+
+        '<div class="mc" style="padding:9px 11px"><div class="mcl">Unit costs</div><div style="font-size:14px;font-weight:700">'+fmt(unitTotal)+'</div></div>'+
+        '<div class="mc" style="padding:9px 11px"><div class="mcl">Shared (1/'+n+')</div><div style="font-size:14px;font-weight:700">'+fmt(perRes)+'</div></div>'+
+        '<div class="mc" style="padding:9px 11px;background:rgba(99,102,241,0.12);border-color:rgba(99,102,241,0.3)"><div class="mcl" style="color:#818cf8">Loaded monthly</div><div style="font-size:14px;font-weight:700;color:#a5b4fc">'+fmt(loaded)+'</div></div></div>'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(99,102,241,0.06);border-radius:8px;border:1px solid rgba(99,102,241,0.15);margin-bottom:'+(unitRows?'12px':'0')+'">'+
+        '<span style="font-size:12px;color:var(--t3)">Available: <strong style="color:var(--t1)">'+(r.availableDays||D.wd)+' / '+D.wd+' days</strong></span>'+
+        '<span style="font-size:14px;font-weight:700;color:#818cf8">'+fmt(rate)+' / day</span></div>'+
+        (unitRows?'<div><div class="ct">Unit costs specific to this resource</div>'+unitRows+'</div>':'')+
+        '</div>';
+    }).join('')||'<div style="color:var(--t4);text-align:center;padding:40px">No resources yet.</div>';
+}
+
+function openEditResource(rid){
+  var r=rid?(D.resources||[]).find(x=>x.id===rid):null;
+  var unitRows=(r?r.unitCosts||[]:[]).map((u,i)=>
+    '<div style="display:flex;gap:8px;margin-bottom:8px" id="uc-row-'+i+'">'+
+    '<input class="inp" id="uc-name-'+i+'" value="'+u.name+'" placeholder="Tool name" style="flex:1">'+
+    '<input class="inp" id="uc-amt-'+i+'" type="number" value="'+u.amount+'" placeholder="Amount" style="width:110px;text-align:right">'+
+    '<button class="btn btns btnd" onclick="removeUCRow('+i+')">X</button></div>').join('');
+  window._ucCount=r?(r.unitCosts||[]).length:0;
+  document.getElementById('m-title').textContent=r?'Edit resource':'Add resource';
+  document.getElementById('m-sub').style.display='none';
+  document.getElementById('m-body').innerHTML=
+    '<div class="fsec-title">Resource information</div>'+
+    '<div class="fgrid-2"><div class="fgroup"><label>Name</label><input class="inp" id="rf-name" value="'+(r?r.name:'')+'" placeholder="Deepam"></div>'+
+    '<div class="fgroup"><label>Role</label><input class="inp" id="rf-note" value="'+(r?r.note:'')+'" placeholder="Senior Artist"></div></div>'+
+    '<div class="fgrid-2" style="margin-top:10px"><div class="fgroup"><label>Monthly salary (₹)</label><input class="inp" id="rf-salary" type="number" value="'+(r?r.salary:'')+'" placeholder="100000"></div>'+
+    '<div class="fgroup"><label>Available days this month</label><input class="inp" id="rf-avail" type="number" value="'+(r?r.availableDays||D.wd:D.wd)+'" placeholder="20"></div></div>'+
+    '<div class="fgrid-2" style="margin-top:10px"><div class="fgroup"><label>Type</label>'+
+    '<select class="inp" id="rf-tag"><option'+(r&&r.tag==='Billable'?' selected':'')+'>Billable</option><option'+(r&&r.tag==='Non-billable'?' selected':'')+'>Non-billable</option></select></div></div>'+
+    '<div class="fsec-title" style="margin-top:16px">Unit costs (tools specific to this resource only)</div>'+
+    '<div id="uc-rows">'+unitRows+'</div>'+
+    '<button class="btn btns" style="margin-top:8px;width:100%;border-style:dashed" onclick="addUCRow()">+ Add unit cost</button>';
+  document.getElementById('m-ok').onclick=()=>{
+    var unitCosts=[];
+    for(var i=0;i<(window._ucCount||0)+20;i++){
+      var nEl=document.getElementById('uc-name-'+i),aEl=document.getElementById('uc-amt-'+i);
+      if(nEl&&aEl&&nEl.value.trim())unitCosts.push({id:'u'+i,name:nEl.value,amount:parseFloat(aEl.value)||0});
+    }
+    var data={id:r?r.id:uid(),name:document.getElementById('rf-name').value||'Unnamed',
+      note:document.getElementById('rf-note').value||'',
+      salary:parseFloat(document.getElementById('rf-salary').value)||0,
+      availableDays:parseInt(document.getElementById('rf-avail').value)||D.wd,
+      tag:document.getElementById('rf-tag').value,unitCosts};
+    if(r){var idx=(D.resources||[]).findIndex(x=>x.id===r.id);if(idx>=0)D.resources[idx]=data;}
+    else{if(!D.resources)D.resources=[];D.resources.push(data);}
+    saveD();closeMod();rResources();
+  };
+  document.getElementById('modal').classList.add('open');
+}
+window.openEditResource=openEditResource;
+window.addUCRow=()=>{var i=window._ucCount++;var div=document.createElement('div');div.id='uc-row-'+i;div.style.cssText='display:flex;gap:8px;margin-bottom:8px';div.innerHTML='<input class="inp" id="uc-name-'+i+'" placeholder="Tool name" style="flex:1"><input class="inp" id="uc-amt-'+i+'" type="number" placeholder="Amount" style="width:110px;text-align:right"><button class="btn btns btnd" onclick="removeUCRow('+i+')">X</button>';document.getElementById('uc-rows').appendChild(div);};
+window.removeUCRow=(i)=>{var el=document.getElementById('uc-row-'+i);if(el)el.remove();};
+window.delResource=(rid)=>{if(confirm('Delete this resource?')){D.resources=(D.resources||[]).filter(r=>r.id!==rid);saveD();rResources();}};
+
+function rCosts(){
+  var n=billableCount(),perRes=n>0?totalShared()/n:0;
+  var rows=(D.sharedCosts||[]).map(c=>
+    '<tr><td style="font-weight:500">'+c.name+(c.note?'<div style="font-size:11px;color:var(--t3)">'+c.note+'</div>':'')+'</td>'+
+    '<td><span class="bdg bgn" style="font-size:10px">'+c.category+'</span></td>'+
+    '<td style="text-align:right;color:var(--t2)">'+fmt(c.amount)+'</td>'+
+    '<td style="text-align:right;color:#818cf8">'+fmt(c.amount*12)+'</td>'+
+    '<td style="text-align:right;color:var(--t3);font-size:12px">'+fmt(n>0?c.amount/n:0)+'/res</td>'+
+    '<td style="text-align:right;white-space:nowrap">'+
+    '<button class="btn btng btns" onclick="openEditCost(''+c.id+'')">✎</button>'+
+    '<button class="btn btns btnd" onclick="delCost(''+c.id+'')">✕</button></td></tr>').join('');
+  document.getElementById('costs-body').innerHTML=
+    '<div class="g4" style="margin-bottom:20px">'+
+    '<div class="mc"><div class="mcl">Total shared monthly</div><div class="mcv" style="color:#34d399">'+fmt(totalShared())+'</div></div>'+
+    '<div class="mc"><div class="mcl">Per resource share</div><div class="mcv">'+fmt(perRes)+'</div></div>'+
+    '<div class="mc"><div class="mcl">Billable resources</div><div class="mcv">'+n+'</div></div>'+
+    '<div class="mc"><div class="mcl">Yearly total</div><div class="mcv">'+fmt(totalShared()*12)+'</div></div></div>'+
+    '<div class="card"><div class="ct">Shared costs — divided equally across all '+n+' billable resources</div>'+
+    '<table class="tbl"><thead><tr><th>Name</th><th>Category</th><th style="text-align:right">Monthly</th><th style="text-align:right;color:#818cf8">Yearly</th><th style="text-align:right">Per resource</th><th></th></tr></thead>'+
+    '<tbody>'+rows+'</tbody></table></div>';
+}
+function openEditCost(cid){
+  var c=cid?(D.sharedCosts||[]).find(x=>x.id===cid):null;
+  var cats=['Operations','Software','Support','Leadership','Marketing','Hardware','Other'];
+  document.getElementById('m-title').textContent=c?'Edit shared cost':'Add shared cost';
+  document.getElementById('m-sub').style.display='none';
+  document.getElementById('m-body').innerHTML=
+    '<div class="fgrid-2"><div class="fgroup"><label>Name</label><input class="inp" id="cf-name" value="'+(c?c.name:'')+'" placeholder="Office Rent"></div>'+
+    '<div class="fgroup"><label>Category</label><select class="inp" id="cf-cat">'+cats.map(cat=>'<option'+(c&&c.category===cat?' selected':'')+'>'+cat+'</option>').join('')+'</select></div></div>'+
+    '<div class="fgrid-2" style="margin-top:10px"><div class="fgroup"><label>Monthly amount (₹)</label><input class="inp" id="cf-amt" type="number" value="'+(c?c.amount:'')+'" placeholder="33333"></div>'+
+    '<div class="fgroup"><label>Note</label><input class="inp" id="cf-note" value="'+(c?c.note||'':'')+'" placeholder="Rent + Internet"></div></div>';
+  document.getElementById('m-ok').onclick=()=>{
+    var data={id:c?c.id:uid(),name:document.getElementById('cf-name').value||'Unnamed',
+      category:document.getElementById('cf-cat').value,
+      amount:parseFloat(document.getElementById('cf-amt').value)||0,
+      note:document.getElementById('cf-note').value||''};
+    if(c){var idx=(D.sharedCosts||[]).findIndex(x=>x.id===c.id);if(idx>=0)D.sharedCosts[idx]=data;}
+    else{if(!D.sharedCosts)D.sharedCosts=[];D.sharedCosts.push(data);}
+    saveD();closeMod();rCosts();
+  };
+  document.getElementById('modal').classList.add('open');
+}
+window.openEditCost=openEditCost;
+window.delCost=(cid)=>{D.sharedCosts=(D.sharedCosts||[]).filter(c=>c.id!==cid);saveD();rCosts();};
+
+var qdays={};
+function rQuote(){
+  document.getElementById('q-resrows').innerHTML=(D.resources||[]).filter(r=>r.tag==='Billable').map(r=>
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
+    '<div class="av">'+r.name.slice(0,2).toUpperCase()+'</div>'+
+    '<div style="flex:1"><div style="font-size:13px;font-weight:600">'+r.name+'</div>'+
+    '<div style="font-size:11px;color:var(--t3)">'+fmt(dailyRate(r))+'/day fully loaded</div></div>'+
+    '<input class="inp" type="number" min="0" value="'+(qdays[r.id]||0)+'" style="width:80px;text-align:center" data-rid="'+r.id+'" onchange="setQD(this)" placeholder="days"></div>'
+  ).join('');calcQ();
+}
+window.setQD=(el)=>{qdays[el.dataset.rid]=parseFloat(el.value)||0;calcQ();};
 window.calcQ=()=>{
-  var cpd=costPerDay(),days=Object.values(qdays).reduce((s,v)=>s+(v||0),0);
-  var ext=parseFloat((document.getElementById('q-ext')||{}).value)||0,tools=parseFloat((document.getElementById('q-tools')||{}).value)||0,tm=(parseFloat((document.getElementById('q-margin')||{}).value)||30)/100;
-  var cost=days*cpd+ext+tools,rec=cost/(1-tm),minQ=cost/(1-0.1);
+  var cost=(D.resources||[]).reduce((s,r)=>s+(qdays[r.id]||0)*dailyRate(r),0);
+  var ext=parseFloat((document.getElementById('q-ext')||{}).value)||0;
+  var tm=(parseFloat((document.getElementById('q-margin')||{}).value)||30)/100;
+  cost+=ext;var rec=tm<1?cost/(1-tm):cost*2,minQ=cost/(1-0.1);
   var qo=document.getElementById('q-out');if(!qo)return;
-  qo.innerHTML='<div class="mc" style="margin-bottom:10px;background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3)"><div class="mcl" style="color:var(--gr)">Recommended — '+Math.round(tm*100)+'% margin</div><div style="font-size:24px;font-weight:700;color:var(--gr)">'+fmt(rec)+'</div></div><div class="mc" style="margin-bottom:10px"><div class="mcl">Break-even</div><div class="mcv">'+fmt(cost)+'</div></div><div class="mc"><div class="mcl">Minimum (10%)</div><div class="mcv">'+fmt(minQ)+'</div></div><div class="hr"></div>'+
-  [['Days quoted',days+'d'],['Cost per day',fmt(cpd)],['Resource cost',fmt(days*cpd)],['External',fmt(ext)],['Tools',fmt(tools)],['Total cost',fmt(cost)]].map(r=>'<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bd);font-size:13px"><span style="color:var(--t2)">'+r[0]+'</span><span>'+r[1]+'</span></div>').join('');
+  qo.innerHTML='<div class="mc" style="margin-bottom:10px;background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3)">'+
+    '<div class="mcl" style="color:var(--gr)">Recommended — '+Math.round(tm*100)+'% margin</div>'+
+    '<div style="font-size:24px;font-weight:700;color:var(--gr)">'+fmt(rec)+'</div></div>'+
+    '<div class="mc" style="margin-bottom:10px"><div class="mcl">Break-even (0% margin)</div><div class="mcv">'+fmt(cost)+'</div></div>'+
+    '<div class="mc"><div class="mcl">Minimum (10% margin)</div><div class="mcv">'+fmt(minQ)+'</div></div><div class="hr"></div>'+
+    (D.resources||[]).filter(r=>(qdays[r.id]||0)>0).map(r=>'<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bd);font-size:13px"><span style="color:var(--t2)">'+r.name+' ('+qdays[r.id]+'d × '+fmt(dailyRate(r))+')</span><span>'+fmt(qdays[r.id]*dailyRate(r))+'</span></div>').join('')+
+    (ext?'<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bd);font-size:13px"><span style="color:var(--t2)">External costs</span><span>'+fmt(ext)+'</span></div>':'');
   var qi=document.getElementById('q-intel');if(!qi)return;
-  qi.innerHTML=[0.1,0.15,0.2,0.25,0.3,0.4].map(m=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bd);font-size:13px"><span style="color:var(--t2)">'+Math.round(m*100)+'%</span><span style="font-weight:600">'+fmt(cost/(1-m))+'</span></div>').join('');
+  qi.innerHTML=[0.1,0.15,0.2,0.25,0.3,0.35,0.4].map(m=>'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bd);font-size:13px"><span style="color:var(--t2)">'+Math.round(m*100)+'%</span><span style="font-weight:600">'+fmt(cost/(1-m))+'</span></div>').join('');
 };
 
 function rUtil(){
-  var res=bRes(),asgn={};
-  res.forEach(function(r){asgn[r.id]=0;});
-  D.projects.forEach(function(p){Object.keys(p.alloc||{}).forEach(function(rid){asgn[rid]=(asgn[rid]||0)+(p.alloc[rid]||0);});});
-  var span=portfolioSpan();
-  var months=portfolioMonths();
-  var workDays=portfolioWorkingDays();
-  var cap=totalCapacityDays();
-  var assigned=totalAssignedDays();
-  var cpd=costPerDay();
-  var util=cap>0?Math.min(assigned/cap,1):0;
-  var idle=Math.max(cap-assigned,0);
+  var bres=(D.resources||[]).filter(r=>r.tag==='Billable'),asgn={};
+  bres.forEach(r=>asgn[r.id]=0);
+  (D.projects||[]).forEach(p=>Object.keys(p.alloc||{}).forEach(rid=>asgn[rid]=(asgn[rid]||0)+(p.alloc[rid]||0)));
+  var cap=bres.reduce((s,r)=>s+(r.availableDays||D.wd),0);
+  var totA=Object.values(asgn).reduce((s,v)=>s+v,0),idle=Math.max(cap-totA,0),upct=cap>0?Math.min(totA/cap,1):0;
   document.getElementById('u-metrics').innerHTML=
-    '<div class="mc"><div class="mcl">Portfolio Span</div><div class="mcv" style="font-size:13px">'+(span?span.start+' → '+span.end:'No dates set')+'</div></div>'+
-    '<div class="mc"><div class="mcl">Working Days</div><div class="mcv">'+workDays+'</div></div>'+
-    '<div class="mc"><div class="mcl">Total Capacity</div><div class="mcv">'+cap+' days</div></div>'+
-    '<div class="mc"><div class="mcl">Utilization</div><div class="mcv" style="color:'+(util>=0.7?'var(--gr)':util>=0.5?'var(--am)':'var(--re)')+'">'+pct(util)+'</div></div>';
-  document.getElementById('u-tbl').innerHTML='<table class="tbl"><thead><tr>'+
-    '<th>Resource</th><th style="text-align:center">Portfolio Available Days</th>'+
-    '<th style="text-align:center">Assigned</th><th>Utilization</th><th style="text-align:right">Idle Cost</th>'+
-    '</tr></thead><tbody>'+
-    res.map(function(r){
-      var a=asgn[r.id]||0;
-      var avail=r.portfolioAvailDays||workDays;
-      var up=avail>0?Math.min(a/avail,1):0;
-      var i2=Math.max(avail-a,0);
-      var ic=i2*cpd;
+    '<div class="mc"><div class="mcl">Available capacity</div><div class="mcv">'+fN(cap)+' days</div></div>'+
+    '<div class="mc"><div class="mcl">Assigned days</div><div class="mcv">'+fN(totA)+' days</div></div>'+
+    '<div class="mc"><div class="mcl">Utilization</div><div class="mcv" style="color:'+(upct>=0.7?'var(--gr)':upct>=0.5?'var(--am)':'var(--re)')+'">'+pct(upct)+'</div></div>'+
+    '<div class="mc"><div class="mcl">Idle capacity</div><div class="mcv" style="color:'+(idle>0?'var(--re)':'var(--gr)')+'">'+fN(idle)+' days</div></div>';
+  document.getElementById('u-tbl').innerHTML='<table class="tbl"><thead><tr><th>Resource</th><th style="text-align:center">Available</th><th style="text-align:center">Assigned</th><th>Utilization</th><th style="text-align:right">Daily rate</th><th style="text-align:right">Idle cost</th></tr></thead><tbody>'+
+    bres.map(r=>{var a=asgn[r.id]||0,cp=r.availableDays||D.wd,up=cp>0?Math.min(a/cp,1):0,i2=Math.max(cp-a,0),rate=dailyRate(r);
       var bc=up>=0.7?'var(--gr)':up>=0.5?'var(--am)':'var(--re)';
-      return '<tr><td><div style="display:flex;align-items:center;gap:8px">'+
-        '<div class="av">'+r.name.slice(0,2).toUpperCase()+'</div>'+
-        '<div><div style="font-weight:600">'+r.name+'</div><div style="font-size:11px;color:var(--t3)">'+r.note+'</div></div>'+
-        '</div></td>'+
-        '<td style="text-align:center">'+
-          '<div style="display:flex;align-items:center;justify-content:center;gap:6px">'+
-          '<input type="number" min="0" value="'+avail+'" style="width:60px;text-align:center;padding:4px 6px;border:1px solid var(--bd2);border-radius:6px;background:rgba(22,36,64,0.6);color:var(--t1);font-size:13px" onchange="setPortfolioAvail(\''+r.id+'\',this.value)">'+
-          '<span style="font-size:11px;color:var(--t4)">/ '+workDays+' working days</span>'+
-          '</div>'+
-        '</td>'+
-        '<td style="text-align:center;font-weight:500">'+a+' days</td>'+
-        '<td><div style="display:flex;align-items:center;gap:8px">'+
-          '<div class="ubarW"><div class="ubarF" style="width:'+(up*100).toFixed(0)+'%;background:'+bc+'"></div></div>'+
-          '<span style="font-size:12px;font-weight:500;min-width:40px">'+pct(up)+'</span></div></td>'+
-        '<td style="text-align:right;font-weight:500;color:'+(i2>0?'var(--re)':'var(--t4)')+'">'+( i2>0?fmt(ic):'—')+'</td>'+
-        '</tr>';
-    }).join('')+
-    '</tbody></table>';
+      return '<tr><td><div style="display:flex;align-items:center;gap:8px"><div class="av">'+r.name.slice(0,2).toUpperCase()+'</div>'+
+        '<div><div style="font-weight:600">'+r.name+'</div><div style="font-size:11px;color:var(--t3)">'+r.note+'</div></div></div></td>'+
+        '<td style="text-align:center">'+fN(cp)+' days</td><td style="text-align:center">'+fN(a)+' days</td>'+
+        '<td><div style="display:flex;align-items:center;gap:8px"><div class="ubarW"><div class="ubarF" style="width:'+(up*100).toFixed(0)+'%;background:'+bc+'"></div></div><span style="font-size:12px;font-weight:500;min-width:40px">'+pct(up)+'</span></div></td>'+
+        '<td style="text-align:right;font-size:12px;color:#a5b4fc">'+fmt(rate)+'/d</td>'+
+        '<td style="text-align:right;font-weight:500;color:'+(i2>0?'var(--re)':'var(--t4)')+'">'+( i2>0?fmt(i2*rate):'—')+'</td></tr>';
+    }).join('')+'</tbody></table>';
   document.getElementById('u-insight').innerHTML=idle>0?
-    '<div class="ins ins-w"><strong style="color:var(--am)">'+idle+' idle days</strong> across portfolio. At '+fmt(cpd)+'/day total idle cost: <strong style="color:var(--am)">'+fmt(idle*cpd)+'</strong>.</div>':
-    '<div class="ins ins-s">All portfolio capacity is fully assigned.</div>';
+    '<div class="ins ins-w"><strong style="color:var(--am)">'+fN(idle)+' idle days</strong> costing approx <strong style="color:var(--am)">'+fmt(bres.reduce((s,r)=>{var a=asgn[r.id]||0,cp=r.availableDays||D.wd;return s+Math.max(cp-a,0)*dailyRate(r);},0))+'</strong> in unrecovered resource costs.</div>':
+    '<div class="ins ins-s">All available capacity is assigned to projects.</div>';
 }
-
-function setDP(p,el){dp=p;document.querySelectorAll('#dp-seg .sb').forEach(b=>b.classList.remove('on'));el.classList.add('on');rDirect()}window.setDP=setDP;
-function setIP(p,el){ip=p;document.querySelectorAll('#ip-seg .sb').forEach(b=>b.classList.remove('on'));el.classList.add('on');rIndirect()}window.setIP=setIP;
-function rDirect(){var per=dp,tot=D.direct.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+(per==='monthly'?mlc(i):mlc(i)*12),0),0),gt=tot+D.indirect.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+(per==='monthly'?mlc(i):mlc(i)*12),0),0);document.getElementById('dir-sum').innerHTML='<div class="mc"><div class="mcl">Direct ('+per+')</div><div class="mcv" style="color:#818cf8">'+fmt(tot)+'</div></div><div class="mc"><div class="mcl">'+(per==='monthly'?'Yearly':'Monthly')+'</div><div class="mcv">'+fmt(per==='monthly'?tot*12:tot/12)+'</div></div><div class="mc"><div class="mcl">Headcount</div><div class="mcv">'+D.direct.reduce((s,c)=>s+c.items.length,0)+'</div></div><div class="mc"><div class="mcl">% of total</div><div class="mcv">'+(gt>0?((tot/gt)*100).toFixed(1):'0')+'%</div></div>';rCatBlocks(D.direct,'dir-cats',per);}
-function rIndirect(){var per=ip,tot=D.indirect.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+(per==='monthly'?mlc(i):mlc(i)*12),0),0),gt=tot+D.direct.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+(per==='monthly'?mlc(i):mlc(i)*12),0),0);document.getElementById('ind-sum').innerHTML='<div class="mc"><div class="mcl">Indirect ('+per+')</div><div class="mcv" style="color:#34d399">'+fmt(tot)+'</div></div><div class="mc"><div class="mcl">'+(per==='monthly'?'Yearly':'Monthly')+'</div><div class="mcv">'+fmt(per==='monthly'?tot*12:tot/12)+'</div></div><div class="mc"><div class="mcl">Cost heads</div><div class="mcv">'+D.indirect.reduce((s,c)=>s+c.items.length,0)+'</div></div><div class="mc"><div class="mcl">% of total</div><div class="mcv">'+(gt>0?((tot/gt)*100).toFixed(1):'0')+'%</div></div>';rCatBlocks(D.indirect,'ind-cats',per);}
-function rCatBlocks(cats,cid,per){var container=document.getElementById(cid);container.innerHTML='';cats.forEach(cat=>{var ct=cat.items.reduce((s,i)=>s+(per==='monthly'?mlc(i):mlc(i)*12),0),div=document.createElement('div');div.className='catblk';var rows=cat.items.map(item=>{
-    var availCell=item.tag==='Billable'?
-      '<td style="text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:5px"><input type="number" min="0" max="31" value="'+(item.availableDays||D.wd)+'" style="width:50px;text-align:center;padding:3px 6px;border:1px solid var(--bd2);border-radius:6px;background:rgba(22,36,64,0.6);color:var(--t1);font-size:12px;font-family:Space Grotesk,sans-serif" onchange="setAvailDays(\''+item.id+'\',this.value)"><span style="font-size:10px;color:var(--t4)">/ '+D.wd+'d</span></div></td>':
-      '<td></td>';
-    return '<tr><td style="font-weight:500">'+item.name+(item.note?'<div style="font-size:11px;color:var(--t3)">'+item.note+'</div>':'')+'</td>'+
-      '<td>'+(item.tag?'<span class="bdg bgn" style="font-size:10px">'+item.tag+'</span>':'')+'</td>'+
-      '<td><span class="bdg '+(item.freq==='Capex'?'bgb':'bgn')+'" style="font-size:10px">'+item.freq+(item.life?'/'+item.life+'mo':'')+'</span></td>'+
-      availCell+
-      '<td style="text-align:right;color:var(--t2)">'+fmt(mlc(item))+'</td>'+
-      '<td style="text-align:right;color:#818cf8">'+fmt(mlc(item)*12)+'</td>'+
-      '<td style="text-align:right;white-space:nowrap"><button class="btn btng btns" data-iid="'+item.id+'" onclick="openEditItem(this.dataset.iid)">✎</button>'+
-      '<button class="btn btns" style="color:var(--re);background:var(--reb);border-color:var(--red)" data-iid="'+item.id+'" onclick="delItem(this.dataset.iid)">✕</button></td></tr>';
-  }).join('');div.innerHTML='<div class="cathdr" data-cid="'+cat.id+'" onclick="toggleCat(this.dataset.cid)"><div class="fl"><div class="catdot" style="background:'+cat.color+'"></div><span style="font-size:13px;font-weight:600;color:var(--t1)">'+cat.name+'</span><span style="font-size:11px;color:var(--t3);margin-left:4px">'+cat.items.length+' items</span></div><div style="display:flex;align-items:center;gap:10px"><span style="font-size:14px;font-weight:600">'+fmt(ct)+'</span><span style="color:var(--t3);font-size:11px">'+(cat.open?'▴':'▾')+'</span></div></div>'+(cat.open?'<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Name</th><th>Tag</th><th>Freq</th><th style="text-align:right">Monthly</th><th style="text-align:right;color:#818cf8">Yearly</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div><div style="padding:9px 14px;border-top:1px solid var(--bd);display:flex;gap:8px"><button class="btn btng btns" data-cid="'+cat.id+'" data-ctype="'+cat.type+'" onclick="openAddItem(this.dataset.cid,this.dataset.ctype)">+ Add item</button><button class="btn btns" style="color:var(--re);background:var(--reb);border-color:var(--red)" data-cid="'+cat.id+'" onclick="delCat(this.dataset.cid)">Delete category</button></div>':'');container.appendChild(div);});}
-window.toggleCat=(id)=>{var c=allCats().find(x=>x.id===id);if(c)c.open=!c.open;rDirect();rIndirect()};
-window.setAvailDays=(itemId,val)=>{var item=allItems().find(i=>i.id===itemId);if(item){item.availableDays=Math.max(0,Math.min(31,parseInt(val)||0));saveD();rDirect();}};
-window.setPortfolioAvail=function(itemId,val){var item=allItems().find(function(i){return i.id===itemId;});if(item){item.portfolioAvailDays=Math.max(0,parseInt(val)||0);saveD();rUtil();rStudio();}};
 
 function openMod(title,bodyHTML,okFn){document.getElementById('m-title').textContent=title;document.getElementById('m-sub').style.display='none';document.getElementById('m-body').innerHTML=bodyHTML;document.getElementById('m-ok').onclick=okFn;document.getElementById('modal').classList.add('open')}
 function closeMod(){document.getElementById('modal').classList.remove('open')}
 document.getElementById('m-cancel').addEventListener('click',closeMod);
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeMod()});
 
-function itemForm(item,catId){var opts=allCats().map(c=>'<option value="'+c.id+'"'+(c.id===catId?' selected':'')+'>'+c.name+'</option>').join('');return'<div style="margin-bottom:10px"><label style="font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Category</label><select class="inp" id="f-cat">'+opts+'</select></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><label style="font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Name</label><input class="inp" id="f-name" value="'+(item.name||'')+'"></div><div><label style="font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Note</label><input class="inp" id="f-note" value="'+(item.note||'')+'"></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><label style="font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Tag</label><input class="inp" id="f-tag" value="'+(item.tag||'')+'"></div><div><label style="font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Frequency</label><select class="inp" id="f-freq" onchange="tLife(this.value)">'+['Monthly','Quarterly','Yearly','Capex'].map(f=>'<option'+(item.freq===f?' selected':'')+'>'+f+'</option>').join('')+'</select></div></div><div id="f-life-row" style="margin-bottom:10px;display:'+(item.freq==='Capex'?'block':'none')+'"><label style="font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Amortize over (months)</label><input class="inp" id="f-life" type="number" value="'+(item.life||36)+'"></div><div><label style="font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Amount (₹)</label><input class="inp" id="f-amt" type="number" value="'+(item.amount||0)+'"></div>';}
-window.tLife=(v)=>{var r=document.getElementById('f-life-row');if(r)r.style.display=v==='Capex'?'block':'none'};
-function saveItemForm(existingId){var catId=document.getElementById('f-cat').value,cat=allCats().find(c=>c.id===catId);if(!cat)return;var freq=document.getElementById('f-freq').value,item={id:existingId||uid(),name:document.getElementById('f-name').value||'Unnamed',note:document.getElementById('f-note').value||'',tag:document.getElementById('f-tag').value||'',freq,amount:parseFloat(document.getElementById('f-amt').value)||0,life:freq==='Capex'?parseInt(document.getElementById('f-life').value)||36:null};if(existingId){allCats().forEach(c=>{var idx=c.items.findIndex(i=>i.id===existingId);if(idx>=0){if(c.id===catId)c.items[idx]=item;else{c.items.splice(idx,1);cat.items.push(item)}}});}else{cat.items.push(item);if(item.tag==='Billable')D.projects.forEach(p=>{if(p.alloc[item.id]===undefined)p.alloc[item.id]=0})}saveD();closeMod();rDirect();rIndirect();}
-window.openAddItem=(catId,type)=>{var def=allCats().find(c=>c.id===catId)||D[type==='direct'?'direct':'indirect'][0];openMod('Add cost head',itemForm({},def?def.id:''),()=>saveItemForm(null))};
-window.openEditItem=(itemId)=>{var cat=allCats().find(c=>c.items.some(i=>i.id===itemId)),item=allItems().find(i=>i.id===itemId);if(!cat||!item)return;openMod('Edit cost head',itemForm(item,cat.id),()=>saveItemForm(itemId))};
-window.delItem=(id)=>{allCats().forEach(c=>{c.items=c.items.filter(i=>i.id!==id)});saveD();rDirect();rIndirect()};
-window.delCat=(id)=>{D.direct=D.direct.filter(c=>c.id!==id);D.indirect=D.indirect.filter(c=>c.id!==id);saveD();rDirect();rIndirect()};
-function openAddCatModal(type){var dots=COLS.map((c,i)=>'<div onclick="pickC(this)" data-c="'+c+'" style="width:16px;height:16px;border-radius:50%;background:'+c+';cursor:pointer;border:2px solid '+(i===0?'#fff':'transparent')+';display:inline-block;margin-right:4px"></div>').join('');openMod('New category','<div style="margin-bottom:10px"><label style="font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Name</label><input class="inp" id="nc-name" placeholder="e.g. Legal"></div><div style="margin-bottom:10px"><label style="font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Color</label><div id="nc-cols" style="display:flex;flex-wrap:wrap;gap:4px">'+dots+'</div></div><div><label style="font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Type</label><select class="inp" id="nc-type"><option value="direct"'+(type==='direct'?' selected':'')+'>Direct</option><option value="indirect"'+(type==='indirect'?' selected':'')+'>Indirect</option></select></div>',()=>{var sel=document.querySelector('#nc-cols div[style*="solid #fff"]'),color=sel?sel.dataset.c:COLS[0],t=document.getElementById('nc-type').value;D[t].push({id:uid(),name:document.getElementById('nc-name').value||'New category',color,type:t,open:true,items:[]});saveD();closeMod();rDirect();rIndirect();});}
-window.pickC=(el)=>{document.querySelectorAll('#nc-cols div').forEach(d=>d.style.border='2px solid transparent');el.style.border='2px solid #fff'};
-
 document.getElementById('btn-newproj').addEventListener('click',()=>openProjForm(null));
-document.getElementById('btn-adddir').addEventListener('click',()=>openAddItem(D.direct[0]?D.direct[0].id:'','direct'));
-document.getElementById('btn-addind').addEventListener('click',()=>openAddItem(D.indirect[0]?D.indirect[0].id:'','indirect'));
-document.getElementById('btn-adddicat').addEventListener('click',()=>openAddCatModal('direct'));
-document.getElementById('btn-addincat').addEventListener('click',()=>openAddCatModal('indirect'));
+document.getElementById('btn-addres').addEventListener('click',()=>openEditResource(null));
+document.getElementById('btn-addcost').addEventListener('click',()=>openEditCost(null));
 
 </script>
 </body>
